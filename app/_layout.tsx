@@ -1,24 +1,48 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { Stack } from 'expo-router';
+// app/_layout.tsx
+import {
+  PlayfairDisplay_400Regular,
+  PlayfairDisplay_400Regular_Italic,
+  PlayfairDisplay_700Bold,
+  PlayfairDisplay_700Bold_Italic,
+  useFonts,
+} from '@expo-google-fonts/playfair-display';
+import { SplashScreen, Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import 'react-native-reanimated';
+import { useEffect } from 'react';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+import '../global.css';
 
-import { useColorScheme } from '@/hooks/use-color-scheme';
-
-export const unstable_settings = {
-  anchor: '(tabs)',
-};
+SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
-  const colorScheme = useColorScheme();
+  const [fontsLoaded, fontError] = useFonts({
+    PlayfairDisplay_400Regular,
+    PlayfairDisplay_700Bold,
+    PlayfairDisplay_400Regular_Italic,
+    PlayfairDisplay_700Bold_Italic,
+  });
+
+  useEffect(() => {
+    if (fontsLoaded || fontError) {
+      SplashScreen.hideAsync();
+    }
+  }, [fontsLoaded, fontError]);
+
+  if (!fontsLoaded && !fontError) {
+    return null;
+  }
 
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
-      </Stack>
-      <StatusBar style="auto" />
-    </ThemeProvider>
+    <GestureHandlerRootView className="flex-1">
+      <SafeAreaProvider>
+        <StatusBar style="dark" />
+        <Stack screenOptions={{ headerShown: false, animation: 'fade' }}>
+          <Stack.Screen name="index" />
+          <Stack.Screen name="(onboarding)" />
+          <Stack.Screen name="(home)" />
+        </Stack>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }
