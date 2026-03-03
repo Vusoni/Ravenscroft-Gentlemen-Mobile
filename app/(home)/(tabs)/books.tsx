@@ -31,28 +31,36 @@ const COVER_H = CARD_W * 1.5;
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
-// ─── Curated books (no coverUrl — fetched from Google Books on mount) ─────────
-const CURATED_BASE: Omit<Book, 'coverUrl'>[] = [
-  { id: 'OL45804W',   title: 'Meditations',                  author: 'Marcus Aurelius',     genre: 'Philosophy',  pageCount: 254 },
-  { id: 'OL66768W',   title: 'The Old Man and the Sea',       author: 'Ernest Hemingway',    genre: 'Literature',  pageCount: 127 },
-  { id: 'OL18098W',   title: "Man's Search for Meaning",      author: 'Viktor Frankl',       genre: 'Psychology',  pageCount: 165 },
-  { id: 'OL468431W',  title: 'The Great Gatsby',              author: 'F. Scott Fitzgerald', genre: 'Fiction',     pageCount: 180 },
-  { id: 'OL15404W',   title: 'Letters from a Stoic',          author: 'Seneca',              genre: 'Philosophy',  pageCount: 256 },
-  { id: 'OL49236W',   title: 'The Picture of Dorian Gray',    author: 'Oscar Wilde',         genre: 'Fiction',     pageCount: 254 },
-  { id: 'OL8098828W', title: 'Crime and Punishment',          author: 'Fyodor Dostoevsky',   genre: 'Fiction',     pageCount: 671 },
-  { id: 'OL57553W',   title: 'Thus Spoke Zarathustra',        author: 'Friedrich Nietzsche', genre: 'Philosophy',  pageCount: 336 },
-  { id: 'OL71490W',   title: 'Walden',                        author: 'Henry David Thoreau', genre: 'Essays',      pageCount: 224 },
-  { id: 'OL35233W',   title: 'The Count of Monte Cristo',     author: 'Alexandre Dumas',     genre: 'Fiction',     pageCount: 1276 },
-  { id: 'OL15403W',   title: 'On the Shortness of Life',      author: 'Seneca',              genre: 'Philosophy',  pageCount: 97 },
-  { id: 'OL22025W',   title: 'The Art of War',                author: 'Sun Tzu',             genre: 'Strategy',    pageCount: 112 },
+// ─── Curated books — covers pre-seeded via Open Library ISBN CDN ──────────────
+// Using stable Open Library cover URLs: covers.openlibrary.org/b/isbn/{ISBN}-L.jpg
+// These are served from CDN and don't require API calls or keys.
+const CURATED: Book[] = [
+  { id: 'OL45804W',   title: 'Meditations',                  author: 'Marcus Aurelius',     genre: 'Philosophy',  pageCount: 254,  coverUrl: 'https://covers.openlibrary.org/b/isbn/9780140449334-L.jpg' },
+  { id: 'OL66768W',   title: 'The Old Man and the Sea',       author: 'Ernest Hemingway',    genre: 'Literature',  pageCount: 127,  coverUrl: 'https://covers.openlibrary.org/b/isbn/9780684801223-L.jpg' },
+  { id: 'OL18098W',   title: "Man's Search for Meaning",      author: 'Viktor Frankl',       genre: 'Psychology',  pageCount: 165,  coverUrl: 'https://covers.openlibrary.org/b/isbn/9780807014271-L.jpg' },
+  { id: 'OL468431W',  title: 'The Great Gatsby',              author: 'F. Scott Fitzgerald', genre: 'Fiction',     pageCount: 180,  coverUrl: 'https://covers.openlibrary.org/b/isbn/9780743273565-L.jpg' },
+  { id: 'OL15404W',   title: 'Letters from a Stoic',          author: 'Seneca',              genre: 'Philosophy',  pageCount: 256,  coverUrl: 'https://covers.openlibrary.org/b/isbn/9780140442106-L.jpg' },
+  { id: 'OL49236W',   title: 'The Picture of Dorian Gray',    author: 'Oscar Wilde',         genre: 'Fiction',     pageCount: 254,  coverUrl: 'https://covers.openlibrary.org/b/isbn/9780141439570-L.jpg' },
+  { id: 'OL8098828W', title: 'Crime and Punishment',          author: 'Fyodor Dostoevsky',   genre: 'Fiction',     pageCount: 671,  coverUrl: 'https://covers.openlibrary.org/b/isbn/9780140449136-L.jpg' },
+  { id: 'OL57553W',   title: 'Thus Spoke Zarathustra',        author: 'Friedrich Nietzsche', genre: 'Philosophy',  pageCount: 336,  coverUrl: 'https://covers.openlibrary.org/b/isbn/9780140441185-L.jpg' },
+  { id: 'OL71490W',   title: 'Walden',                        author: 'Henry David Thoreau', genre: 'Essays',      pageCount: 224,  coverUrl: 'https://covers.openlibrary.org/b/isbn/9780451531445-L.jpg' },
+  { id: 'OL35233W',   title: 'The Count of Monte Cristo',     author: 'Alexandre Dumas',     genre: 'Fiction',     pageCount: 1276, coverUrl: 'https://covers.openlibrary.org/b/isbn/9780140449266-L.jpg' },
+  { id: 'OL15403W',   title: 'On the Shortness of Life',      author: 'Seneca',              genre: 'Philosophy',  pageCount: 97,   coverUrl: 'https://covers.openlibrary.org/b/isbn/9780143036326-L.jpg' },
+  { id: 'OL22025W',   title: 'The Art of War',                author: 'Sun Tzu',             genre: 'Strategy',    pageCount: 112,  coverUrl: 'https://covers.openlibrary.org/b/isbn/9781590302255-L.jpg' },
 ];
 
 // ─── Google Books API ─────────────────────────────────────────────────────────
-// Why Google Books?
-//  • Returns cover URLs *directly* in the search response — no secondary lookup
-//  • Covers are served from Google's CDN → reliable, fast
-//  • Free up to 1,000 requests/day without a key (add ?key= for more)
-//  • Handles errors gracefully (always returns JSON, `items` may be absent)
+// Covers are served from Google's CDN. Free up to 1,000 req/day without a key.
+
+// Races a fetch against a 5-second timeout so the app never hangs waiting for covers.
+function fetchWithTimeout(url: string, ms = 5000): Promise<Response> {
+  return Promise.race([
+    fetch(url),
+    new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('timeout')), ms),
+    ),
+  ]);
+}
 
 type GBItem = {
   id: string;
@@ -74,10 +82,9 @@ async function searchGoogleBooks(query: string): Promise<Book[]> {
   const url =
     `https://www.googleapis.com/books/v1/volumes` +
     `?q=${encodeURIComponent(query)}&maxResults=20` +
-    `&fields=items(id,volumeInfo(title,authors,imageLinks,pageCount,categories))`;
-  const res = await fetch(url);
+    `&fields=items(id,volumeInfo(title,authors,imageLinks,pageCount,categories,description))`;
+  const res = await fetchWithTimeout(url);
   const data = await res.json();
-  // `items` is absent when there are no results — always guard with ?? []
   const items: GBItem[] = data.items ?? [];
   return items.map((item) => ({
     id: item.id,
@@ -86,23 +93,8 @@ async function searchGoogleBooks(query: string): Promise<Book[]> {
     coverUrl: httpsUrl(item.volumeInfo.imageLinks?.thumbnail ?? item.volumeInfo.imageLinks?.smallThumbnail),
     pageCount: item.volumeInfo.pageCount,
     genre: item.volumeInfo.categories?.[0],
+    description: item.volumeInfo.description,
   }));
-}
-
-async function fetchCoverForBook(book: Omit<Book, 'coverUrl'>): Promise<string | undefined> {
-  // Query Google Books by title + author to get a reliable cover thumbnail
-  const q = `intitle:${encodeURIComponent(book.title)}+inauthor:${encodeURIComponent(book.author)}`;
-  const url =
-    `https://www.googleapis.com/books/v1/volumes` +
-    `?q=${q}&maxResults=1&fields=items/volumeInfo/imageLinks`;
-  try {
-    const res = await fetch(url);
-    const data = await res.json();
-    const links = data.items?.[0]?.volumeInfo?.imageLinks;
-    return httpsUrl(links?.thumbnail ?? links?.smallThumbnail);
-  } catch {
-    return undefined;
-  }
 }
 
 // ─── Fallback cover colour (deterministic from id) ────────────────────────────
@@ -169,8 +161,7 @@ export default function BooksTab() {
   const insets = useSafeAreaInsets();
   const { library, hydrate, isInLibrary } = useBooksStore();
 
-  // Curated books start without covers; we fetch from Google Books in parallel
-  const [curated, setCurated] = useState<Book[]>(CURATED_BASE.map((b) => ({ ...b })));
+  // Curated books have pre-seeded coverUrl — no API call needed on mount
   const [activeTab, setActiveTab] = useState<'library' | 'discover'>('discover');
   const [searchOpen, setSearchOpen] = useState(false);
   const [query, setQuery] = useState('');
@@ -181,15 +172,7 @@ export default function BooksTab() {
   const searchStyle = useAnimatedStyle(() => ({ height: searchH.value, overflow: 'hidden' }));
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Hydrate saved library + fetch covers for curated books on mount
-  useEffect(() => {
-    hydrate();
-    // Fetch all 12 curated covers in parallel from Google Books
-    Promise.all(CURATED_BASE.map(async (book) => {
-      const coverUrl = await fetchCoverForBook(book);
-      return { ...book, coverUrl } as Book;
-    })).then(setCurated);
-  }, [hydrate]);
+  useEffect(() => { hydrate(); }, [hydrate]);
 
   const toggleSearch = () => {
     const open = !searchOpen;
