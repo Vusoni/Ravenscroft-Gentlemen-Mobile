@@ -25,9 +25,7 @@ export default function BookDetailScreen() {
 
   const [expanded, setExpanded] = useState(false);
 
-  const coverUrl = book.coverId
-    ? `https://covers.openlibrary.org/b/isbn/${book.coverId}-M.jpg`
-    : null;
+  const coverUrl = book.coverUrl ?? null;
 
   const toggleSave = () => {
     Haptics.selectionAsync();

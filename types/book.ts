@@ -1,8 +1,8 @@
 export interface Book {
-  id: string;          // Open Library work key e.g. "OL45804W"
+  id: string;           // Open Library work key (curated) or Google Books volume ID (search)
   title: string;
   author: string;
-  coverId?: number;    // Open Library cover ID for image URL
+  coverUrl?: string;    // direct HTTPS image URL — set by whichever API sourced the book
   genre?: string;
   pageCount?: number;
   description?: string;
