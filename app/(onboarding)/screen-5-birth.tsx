@@ -5,6 +5,7 @@ import { useOnboardingStore } from '@/store/onboardingStore';
 import DateTimePicker, {
   DateTimePickerEvent,
 } from '@react-native-community/datetimepicker';
+import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
 import { Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -20,7 +21,10 @@ export default function Screen5Birth() {
   const currentDate = dateOfBirth ?? new Date(1995, 1, 18);
 
   const handleChange = (_event: DateTimePickerEvent, date?: Date) => {
-    if (date) setDOB(date);
+    if (date) {
+      setDOB(date);
+      Haptics.selectionAsync();
+    }
   };
 
   const handleGetStarted = async () => {
@@ -29,26 +33,28 @@ export default function Screen5Birth() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-ivory" edges={['bottom']}>
+    <SafeAreaView className="flex-1 bg-ivory" edges={['top', 'bottom']}>
       <View className="flex-1 justify-between">
-        {/* Header */}
-        <View className="px-6 pt-6">
+        {/* Header — large centered title */}
+        <View className="items-center px-6 pt-8">
           <Text
-            className="text-ink text-[22px] leading-7 mb-2"
+            className="text-ink text-[28px] leading-9 text-center"
             style={{ fontFamily: 'PlayfairDisplay_700Bold' }}
           >
-            When did your story begin?
+            When did your{'\n'}story begin?
           </Text>
+          <View style={{ width: 40, height: 1, backgroundColor: '#0A0A0A', marginTop: 10 }} />
+
           <Text
-            className="text-muted text-sm"
-            style={{ fontFamily: 'PlayfairDisplay_400Regular' }}
+            className="text-ink text-base text-center mt-5"
+            style={{ fontFamily: 'PlayfairDisplay_700Bold' }}
           >
             Select your date of birth.
           </Text>
         </View>
 
-        {/* Date picker — iOS spinner style matches Figma drum-roll */}
-        <View className="items-center py-6">
+        {/* Date picker — iOS spinner drum-roll */}
+        <View className="items-center py-4">
           <DateTimePicker
             value={currentDate}
             mode="date"
@@ -62,13 +68,15 @@ export default function Screen5Birth() {
           />
         </View>
 
-        {/* Privacy note */}
-        <View className="px-6">
+        {/* Privacy notice */}
+        <View className="px-8">
           <Text
-            className="text-muted/70 text-[11px] text-center leading-4"
+            className="text-muted/70 text-[11px] text-center leading-[18px]"
             style={{ fontFamily: 'PlayfairDisplay_400Regular_Italic' }}
           >
-            Your date of birth is used only to personalise your experience. It is never shared.
+            Please refer to our{' '}
+            <Text style={{ textDecorationLine: 'underline' }}>Privacy notice</Text>
+            {' '}for further information on how we process this data.
           </Text>
         </View>
 

@@ -25,34 +25,56 @@ export default function Screen4Interests() {
   const pursuitsSummary = selectedInterests.join(' · ');
 
   return (
-    <SafeAreaView className="flex-1 bg-ivory" edges={['bottom']}>
+    <SafeAreaView className="flex-1 bg-ivory" edges={['top', 'bottom']}>
       <ScrollView
         className="flex-1"
         contentContainerStyle={{ flexGrow: 1 }}
         showsVerticalScrollIndicator={false}
       >
-        {/* Header */}
-        <View className="px-6 pt-6 pb-2">
+        {/* Centered title + decorative underline */}
+        <View className="items-center pt-5 pb-4 px-6">
           <Text
-            className="text-ink text-[22px] leading-7 mb-1"
-            style={{ fontFamily: 'PlayfairDisplay_700Bold' }}
+            className="text-ink text-[22px] text-center"
+            style={{ fontFamily: 'PlayfairDisplay_400Regular' }}
           >
             Define your Interests
           </Text>
+          <View style={{ width: 40, height: 1, backgroundColor: '#0A0A0A', marginTop: 8 }} />
+        </View>
+
+        {/* Italic subtitle */}
+        <View className="px-6 pb-2">
           <Text
-            className="text-ink text-base mb-1"
+            className="text-ink text-base text-center"
             style={{ fontFamily: 'PlayfairDisplay_400Regular_Italic' }}
           >
             What defines you beyond the surface?
           </Text>
-          <Text className="text-muted text-xs leading-4">
-            Behind every remarkable man is a collection of pursuits he took seriously. No hobbie
-            disciplines — select what speaks to you honestly and we'll shape a routine worthy of it.
+        </View>
+
+        {/* Description paragraph */}
+        <View className="px-6 pb-4">
+          <Text
+            className="text-muted text-[13px] leading-5 text-center"
+            style={{ fontFamily: 'PlayfairDisplay_400Regular' }}
+          >
+            Behind every remarkable man is a collection of pursuits he took seriously. Not hobbies —
+            disciplines. Select what speaks to you honestly, and we'll shape a routine worthy of it.
           </Text>
         </View>
 
-        {/* Chips */}
-        <View className="px-5 py-4 flex-row flex-wrap">
+        {/* Bold statement */}
+        <View className="px-6 pb-3">
+          <Text
+            className="text-ink text-[19px] leading-7"
+            style={{ fontFamily: 'PlayfairDisplay_700Bold' }}
+          >
+            Select a few pursuits{'\n'}that speak to you.{'\n'}We'll handle the rest.
+          </Text>
+        </View>
+
+        {/* Interest chips */}
+        <View className="px-5 pb-4 flex-row flex-wrap">
           {INTERESTS.map((tag) => (
             <InterestTag
               key={tag}
@@ -65,13 +87,16 @@ export default function Screen4Interests() {
 
         {/* Pursuits summary */}
         {selectedInterests.length > 0 && (
-          <View className="mx-6 mt-2 p-3 rounded-xl bg-surface border border-border">
-            <Text className="text-muted text-xs tracking-widest uppercase mb-1">
-              Your pursuits
+          <View className="mx-5 mb-3 px-4 py-3 bg-ink/5 rounded-xl">
+            <Text
+              className="text-ink/40 text-[10px] tracking-widest uppercase mb-1"
+              style={{ fontFamily: 'PlayfairDisplay_400Regular' }}
+            >
+              Your selection · {selectedInterests.length}
             </Text>
             <Text
-              className="text-ink text-sm leading-5"
-              style={{ fontFamily: 'PlayfairDisplay_400Regular_Italic' }}
+              className="text-ink text-[13px] leading-5"
+              style={{ fontFamily: 'PlayfairDisplay_400Regular' }}
             >
               {pursuitsSummary}
             </Text>

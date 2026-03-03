@@ -12,7 +12,7 @@ const SUMMARY_POINTS = [
 
 export default function ArticleScreen() {
   return (
-    <SafeAreaView className="flex-1 bg-white" edges={['bottom']}>
+    <SafeAreaView className="flex-1 bg-white" edges={['top', 'bottom']}>
       {/* Nav */}
       <View className="flex-row items-center px-5 py-3 border-b border-border">
         <Pressable

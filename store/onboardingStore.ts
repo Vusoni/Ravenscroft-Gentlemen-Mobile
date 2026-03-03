@@ -14,6 +14,7 @@ interface OnboardingState {
   setDOB: (date: Date) => void;
   checkOnboardingStatus: () => Promise<boolean>;
   completeOnboarding: () => Promise<void>;
+  resetOnboarding: () => Promise<void>;
 }
 
 export const useOnboardingStore = create<OnboardingState>((set, get) => ({
@@ -50,5 +51,14 @@ export const useOnboardingStore = create<OnboardingState>((set, get) => ({
       await AsyncStorage.setItem(DOB_KEY, dateOfBirth.toISOString());
     }
     set({ isOnboardingComplete: true });
+  },
+
+  resetOnboarding: async () => {
+    await AsyncStorage.multiRemove([ONBOARDING_KEY, INTERESTS_KEY, DOB_KEY]);
+    set({
+      isOnboardingComplete: false,
+      selectedInterests: [],
+      dateOfBirth: null,
+    });
   },
 }));

@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//Users/oliwierkraszewski/Documents/01\\\\ Projects/Gentlemen-App/app/**)",
+      "Read(//Users/oliwierkraszewski/Documents/01\\\\ Projects/Gentlemen-App/app/\\(onboarding\\)/**)"
+    ],
+    "additionalDirectories": [
+      "/Users/oliwierkraszewski/Documents/01 Projects/Gentlemen-App/assets/elegant-images"
+    ]
+  }
+}
