@@ -2,7 +2,12 @@
   "permissions": {
     "allow": [
       "Read(//Users/oliwierkraszewski/Documents/01\\\\ Projects/Gentlemen-App/app/**)",
-      "Read(//Users/oliwierkraszewski/Documents/01\\\\ Projects/Gentlemen-App/app/\\(onboarding\\)/**)"
+      "Read(//Users/oliwierkraszewski/Documents/01\\\\ Projects/Gentlemen-App/app/\\(onboarding\\)/**)",
+      "Read(//Users/oliwierkraszewski/Documents/01\\\\ Projects/Gentlemen-App/app/\\\\\\(home\\\\\\)/\\\\\\(tabs\\\\\\)/**)",
+      "Read(//Users/oliwierkraszewski/Documents/01\\\\ Projects/Gentlemen-App/app/\\\\\\(home\\\\\\)/**)",
+      "Read(//Users/oliwierkraszewski/Documents/01\\\\ Projects/Gentlemen-App/constants/**)",
+      "Bash(ls -la \"/Users/oliwierkraszewski/Documents/01 Projects/Gentlemen-App/app/\\\\\\(home\\\\\\)/\")",
+      "Bash(ls -la \"/Users/oliwierkraszewski/Documents/01 Projects/Gentlemen-App/app/\\(home\\)/\")"
     ],
     "additionalDirectories": [
       "/Users/oliwierkraszewski/Documents/01 Projects/Gentlemen-App/assets/elegant-images"

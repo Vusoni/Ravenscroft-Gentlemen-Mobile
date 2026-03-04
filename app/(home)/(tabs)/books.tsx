@@ -1,9 +1,9 @@
-// app/(home)/(tabs)/books.tsx — Books library with search + curated discover
+// app/(home)/(tabs)/books.tsx — Books library with search + trending discover
 import { TAB_BAR_BOTTOM_OFFSET } from '@/components/GlassTabBar';
 import { useBooksStore } from '@/store/booksStore';
 import { Book } from '@/types/book';
 import { router } from 'expo-router';
-import { BookMarked, BookOpen, Search, X } from 'lucide-react-native';
+import { BookMarked, BookOpen, Search, TrendingUp, X } from 'lucide-react-native';
 import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -31,10 +31,8 @@ const COVER_H = CARD_W * 1.5;
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
-// ─── Curated books — covers pre-seeded via Open Library ISBN CDN ──────────────
-// Using stable Open Library cover URLs: covers.openlibrary.org/b/isbn/{ISBN}-L.jpg
-// These are served from CDN and don't require API calls or keys.
-const CURATED: Book[] = [
+// ─── Classic fallback (shown while trending loads / on network error) ──────────
+const CURATED_FALLBACK: Book[] = [
   { id: 'OL45804W',   title: 'Meditations',                  author: 'Marcus Aurelius',     genre: 'Philosophy',  pageCount: 254,  coverUrl: 'https://covers.openlibrary.org/b/isbn/9780140449334-L.jpg' },
   { id: 'OL66768W',   title: 'The Old Man and the Sea',       author: 'Ernest Hemingway',    genre: 'Literature',  pageCount: 127,  coverUrl: 'https://covers.openlibrary.org/b/isbn/9780684801223-L.jpg' },
   { id: 'OL18098W',   title: "Man's Search for Meaning",      author: 'Viktor Frankl',       genre: 'Psychology',  pageCount: 165,  coverUrl: 'https://covers.openlibrary.org/b/isbn/9780807014271-L.jpg' },
@@ -49,10 +47,37 @@ const CURATED: Book[] = [
   { id: 'OL22025W',   title: 'The Art of War',                author: 'Sun Tzu',             genre: 'Strategy',    pageCount: 112,  coverUrl: 'https://covers.openlibrary.org/b/isbn/9781590302255-L.jpg' },
 ];
 
-// ─── Google Books API ─────────────────────────────────────────────────────────
-// Covers are served from Google's CDN. Free up to 1,000 req/day without a key.
+// ─── Open Library trending API ────────────────────────────────────────────────
+type OLWork = {
+  key: string;
+  title: string;
+  author_name?: string[];
+  cover_i?: number;
+  number_of_pages_median?: number;
+  subject?: string[];
+};
 
-// Races a fetch against a 5-second timeout so the app never hangs waiting for covers.
+async function fetchTrendingBooks(): Promise<Book[]> {
+  const res = await fetch(
+    'https://openlibrary.org/trending/yearly.json?limit=24',
+    { signal: AbortSignal.timeout(8000) },
+  );
+  if (!res.ok) throw new Error(`OL ${res.status}`);
+  const data = await res.json();
+  const works: OLWork[] = data.works ?? [];
+  return works
+    .filter((w) => w.cover_i)
+    .map((w) => ({
+      id: w.key.replace('/works/', ''),
+      title: w.title,
+      author: w.author_name?.[0] ?? 'Unknown',
+      coverUrl: `https://covers.openlibrary.org/b/id/${w.cover_i}-L.jpg`,
+      pageCount: w.number_of_pages_median,
+      genre: w.subject?.[0],
+    }));
+}
+
+// ─── Google Books API ─────────────────────────────────────────────────────────
 function fetchWithTimeout(url: string, ms = 5000): Promise<Response> {
   return Promise.race([
     fetch(url),
@@ -74,7 +99,6 @@ type GBItem = {
   };
 };
 
-// Google returns http:// covers; upgrade to https
 const httpsUrl = (url?: string) =>
   url ? url.replace('http://', 'https://') : undefined;
 
@@ -97,7 +121,7 @@ async function searchGoogleBooks(query: string): Promise<Book[]> {
   }));
 }
 
-// ─── Fallback cover colour (deterministic from id) ────────────────────────────
+// ─── Fallback cover colour ─────────────────────────────────────────────────────
 const COVER_COLORS = ['#1C1C1C', '#2C2C2C', '#3B2F2F', '#2B3A2B', '#2B2B3A', '#3A2B38', '#3A352B'];
 function coverColor(id: string): string {
   let n = 0;
@@ -144,11 +168,11 @@ function BookCard({ book, inLibrary }: { book: Book; inLibrary: boolean }) {
       </View>
 
       {/* Meta */}
-      <View style={{ marginTop: 8, gap: 2 }}>
+      <View style={{ marginTop: 8, gap: 3 }}>
         <Text numberOfLines={2} style={{ fontFamily: 'PlayfairDisplay_700Bold', fontSize: 13, color: '#0A0A0A', lineHeight: 18 }}>
           {book.title}
         </Text>
-        <Text numberOfLines={1} style={{ fontFamily: 'PlayfairDisplay_400Regular_Italic', fontSize: 11, color: '#6B6B6B' }}>
+        <Text numberOfLines={1} style={{ fontSize: 11, fontStyle: 'italic', color: '#6B6B6B' }}>
           {book.author}
         </Text>
       </View>
@@ -161,18 +185,32 @@ export default function BooksTab() {
   const insets = useSafeAreaInsets();
   const { library, hydrate, isInLibrary } = useBooksStore();
 
-  // Curated books have pre-seeded coverUrl — no API call needed on mount
   const [activeTab, setActiveTab] = useState<'library' | 'discover'>('discover');
   const [searchOpen, setSearchOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Book[]>([]);
   const [searching, setSearching] = useState(false);
 
+  // Trending state — seeded with curated fallback
+  const [trendingBooks, setTrendingBooks] = useState<Book[]>(CURATED_FALLBACK);
+  const [trendingLoading, setTrendingLoading] = useState(true);
+  const trendingFetched = useRef(false);
+
   const searchH = useSharedValue(0);
   const searchStyle = useAnimatedStyle(() => ({ height: searchH.value, overflow: 'hidden' }));
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  useEffect(() => { hydrate(); }, [hydrate]);
+  useEffect(() => {
+    hydrate();
+    // Fetch trending on mount
+    if (!trendingFetched.current) {
+      trendingFetched.current = true;
+      fetchTrendingBooks()
+        .then((books) => { if (books.length > 0) setTrendingBooks(books); })
+        .catch(() => { /* keep fallback */ })
+        .finally(() => setTrendingLoading(false));
+    }
+  }, [hydrate]);
 
   const toggleSearch = () => {
     const open = !searchOpen;
@@ -203,7 +241,7 @@ export default function BooksTab() {
     ? searchResults
     : activeTab === 'library'
       ? library
-      : curated;
+      : trendingBooks;
 
   const renderEmpty = () => {
     if (showingSearch && searching) {
@@ -269,24 +307,38 @@ export default function BooksTab() {
 
       {/* Tab row */}
       {!showingSearch && (
-        <View style={{ flexDirection: 'row', paddingHorizontal: 20, paddingTop: 12, paddingBottom: 4, gap: 24 }}>
-          {(['library', 'discover'] as const).map((tab) => (
-            <Pressable
-              key={tab}
-              onPress={() => setActiveTab(tab)}
-              style={{ paddingBottom: 8, borderBottomWidth: 1.5, borderBottomColor: activeTab === tab ? '#0A0A0A' : 'transparent' }}
-            >
-              <Text style={{
-                fontFamily: activeTab === tab ? 'PlayfairDisplay_700Bold' : 'PlayfairDisplay_400Regular',
-                fontSize: 13,
-                color: activeTab === tab ? '#0A0A0A' : '#6B6B6B',
-                textTransform: 'capitalize',
-                letterSpacing: 0.3,
-              }}>
-                {tab === 'library' ? 'My Library' : 'Discover'}
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 12, paddingBottom: 4 }}>
+          <View style={{ flexDirection: 'row', gap: 24 }}>
+            {(['library', 'discover'] as const).map((tab) => (
+              <Pressable
+                key={tab}
+                onPress={() => setActiveTab(tab)}
+                style={{ paddingBottom: 8, borderBottomWidth: 1.5, borderBottomColor: activeTab === tab ? '#0A0A0A' : 'transparent' }}
+              >
+                <Text style={{
+                  fontFamily: activeTab === tab ? 'PlayfairDisplay_700Bold' : 'PlayfairDisplay_400Regular',
+                  fontSize: 13,
+                  color: activeTab === tab ? '#0A0A0A' : '#6B6B6B',
+                  textTransform: 'capitalize',
+                  letterSpacing: 0.3,
+                }}>
+                  {tab === 'library' ? 'My Library' : 'Discover'}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+
+          {/* Trending indicator */}
+          {activeTab === 'discover' && !showingSearch && (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+              {trendingLoading
+                ? <ActivityIndicator size="small" color="#ABABAB" />
+                : <TrendingUp size={12} color="#ABABAB" strokeWidth={1.5} />}
+              <Text style={{ fontSize: 10, color: '#ABABAB', letterSpacing: 0.3 }}>
+                {trendingLoading ? 'Loading…' : 'Trending this year'}
               </Text>
-            </Pressable>
-          ))}
+            </View>
+          )}
         </View>
       )}
 

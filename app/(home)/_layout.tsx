@@ -9,6 +9,7 @@ export default function HomeLayout() {
       <Stack.Screen name="article" options={{ animation: 'slide_from_right' }} />
       <Stack.Screen name="book-detail" options={{ animation: 'slide_from_right' }} />
       <Stack.Screen name="book-notes" options={{ animation: 'slide_from_right' }} />
+      <Stack.Screen name="book-reader" options={{ animation: 'slide_from_right' }} />
     </Stack>
   );
 }

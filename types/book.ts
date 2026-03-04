@@ -13,3 +13,11 @@ export interface NoteSet {
   reflection: string;
   questions: string[];
 }
+
+export interface UserNote {
+  id: string;
+  bookId: string;
+  text: string;
+  pageIndex?: number;
+  createdAt: string; // ISO string
+}
