@@ -1,9 +1,12 @@
 // app/(home)/(tabs)/profile.tsx
 import { TAB_BAR_BOTTOM_OFFSET } from '@/components/GlassTabBar';
+import { GlassCard } from '@/components/GlassCard';
 import { useBooksStore } from '@/store/booksStore';
 import { useOnboardingStore } from '@/store/onboardingStore';
+import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
+import * as Haptics from 'expo-haptics';
 import {
   Bell,
   BookMarked,
@@ -17,15 +20,32 @@ import {
   MoreHorizontal,
   ScrollText,
 } from 'lucide-react-native';
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   Alert,
+  Platform,
   Pressable,
   ScrollView,
+  StyleSheet,
   Text,
   View,
 } from 'react-native';
+import Animated, {
+  FadeIn,
+  FadeInDown,
+  FadeInUp,
+  interpolate,
+  useAnimatedScrollHandler,
+  useAnimatedStyle,
+  useSharedValue,
+  withDelay,
+  withSpring,
+  withTiming,
+} from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+const AnimatedScrollView = Animated.createAnimatedComponent(ScrollView);
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type SettingRow = {
@@ -57,105 +77,188 @@ const ROW_HANDLERS: Record<string, () => void> = {
   guide: () => router.push('/(home)/app-guide'),
 };
 
-// ─── Banner ───────────────────────────────────────────────────────────────────
-function BannerHeader({ topInset }: { topInset: number }) {
-  return (
-    <LinearGradient
-      colors={['#0A0A0A', '#181818', '#1C1C1C']}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 1 }}
-      style={{ height: topInset + 164, paddingTop: topInset }}
-    >
-      {/* Subtle decorative lines */}
-      <View style={{
-        position: 'absolute',
-        bottom: 0,
-        right: 0,
-        width: 180,
-        height: 180,
-        opacity: 0.05,
-      }}>
-        {[0, 1, 2, 3, 4].map((i) => (
-          <View
-            key={i}
-            style={{
-              position: 'absolute',
-              bottom: i * 28,
-              right: i * 28,
-              width: 180 - i * 28,
-              height: 180 - i * 28,
-              borderRadius: (180 - i * 28) / 2,
-              borderWidth: 1,
-              borderColor: '#FFFFFF',
-            }}
-          />
-        ))}
-      </View>
+// ─── Animated Counter ─────────────────────────────────────────────────────────
+function AnimatedCounter({ target, delay = 0 }: { target: number; delay?: number }) {
+  const count = useSharedValue(0);
 
-      {/* Top label row */}
-      <View style={{
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        paddingHorizontal: 24,
-        paddingTop: 18,
-      }}>
-        <Text style={{
-          fontFamily: 'PlayfairDisplay_700Bold',
-          fontSize: 11,
-          letterSpacing: 3,
-          color: 'rgba(237, 237, 237, 0.45)',
-          textTransform: 'uppercase',
+  useEffect(() => {
+    count.value = withDelay(delay, withTiming(target, { duration: 800 }));
+  }, [target]);
+
+  const animStyle = useAnimatedStyle(() => ({
+    opacity: 1,
+  }));
+
+  const [displayed, setDisplayed] = useState(0);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      let start = 0;
+      const end = target;
+      if (end === 0) { setDisplayed(0); return; }
+      const duration = 800;
+      const stepTime = Math.max(Math.floor(duration / end), 30);
+      const interval = setInterval(() => {
+        start += 1;
+        setDisplayed(start);
+        if (start >= end) clearInterval(interval);
+      }, stepTime);
+      return () => clearInterval(interval);
+    }, delay);
+    return () => clearTimeout(timer);
+  }, [target, delay]);
+
+  return (
+    <Animated.Text style={[{
+      fontFamily: 'PlayfairDisplay_700Bold',
+      fontSize: 24,
+      color: '#0A0A0A',
+      letterSpacing: -0.5,
+    }, animStyle]}>
+      {displayed}
+    </Animated.Text>
+  );
+}
+
+// ─── Banner ───────────────────────────────────────────────────────────────────
+function BannerHeader({ topInset, scrollY }: { topInset: number; scrollY: Animated.SharedValue<number> }) {
+  const bannerHeight = topInset + 164;
+
+  const parallaxStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: interpolate(scrollY.value, [-100, 0, 200], [50, 0, -40]) }],
+    opacity: interpolate(scrollY.value, [0, 160], [1, 0.6]),
+  }));
+
+  return (
+    <Animated.View style={parallaxStyle}>
+      <LinearGradient
+        colors={['#0A0A0A', '#151515', '#1C1C1C']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={{ height: bannerHeight, paddingTop: topInset }}
+      >
+        {/* Decorative concentric arcs */}
+        <View style={{
+          position: 'absolute',
+          bottom: 0,
+          right: 0,
+          width: 180,
+          height: 180,
+          opacity: 0.04,
         }}>
-          My Profile
-        </Text>
-        <Pressable
-          hitSlop={12}
-          style={({ pressed }) => ({
-            opacity: pressed ? 0.5 : 1,
-            width: 32,
-            height: 32,
-            borderRadius: 16,
-            borderWidth: 1,
-            borderColor: 'rgba(255,255,255,0.12)',
+          {[0, 1, 2, 3, 4].map((i) => (
+            <View
+              key={i}
+              style={{
+                position: 'absolute',
+                bottom: i * 28,
+                right: i * 28,
+                width: 180 - i * 28,
+                height: 180 - i * 28,
+                borderRadius: (180 - i * 28) / 2,
+                borderWidth: 1,
+                borderColor: '#FFFFFF',
+              }}
+            />
+          ))}
+        </View>
+
+        {/* Top row */}
+        <Animated.View
+          entering={FadeIn.delay(100).duration(500)}
+          style={{
+            flexDirection: 'row',
             alignItems: 'center',
-            justifyContent: 'center',
-          })}
+            justifyContent: 'space-between',
+            paddingHorizontal: 24,
+            paddingTop: 18,
+          }}
         >
-          <MoreHorizontal size={15} color="rgba(237,237,237,0.6)" strokeWidth={1.8} />
-        </Pressable>
-      </View>
-    </LinearGradient>
+          <Text style={{
+            fontFamily: 'PlayfairDisplay_700Bold',
+            fontSize: 11,
+            letterSpacing: 3,
+            color: 'rgba(237, 237, 237, 0.45)',
+            textTransform: 'uppercase',
+          }}>
+            My Profile
+          </Text>
+          <Pressable
+            hitSlop={12}
+            style={({ pressed }) => ({
+              opacity: pressed ? 0.5 : 1,
+              width: 32,
+              height: 32,
+              borderRadius: 16,
+              borderWidth: 1,
+              borderColor: 'rgba(255,255,255,0.18)',
+              backgroundColor: 'rgba(255,255,255,0.08)',
+              alignItems: 'center',
+              justifyContent: 'center',
+            })}
+          >
+            <MoreHorizontal size={15} color="rgba(237,237,237,0.6)" strokeWidth={1.8} />
+          </Pressable>
+        </Animated.View>
+      </LinearGradient>
+    </Animated.View>
   );
 }
 
 // ─── Avatar ───────────────────────────────────────────────────────────────────
 function FloatingAvatar({ initials }: { initials: string }) {
+  const scale = useSharedValue(0.5);
+  const opacity = useSharedValue(0);
+
+  useEffect(() => {
+    scale.value = withDelay(200, withSpring(1, { damping: 12, stiffness: 120 }));
+    opacity.value = withDelay(200, withTiming(1, { duration: 400 }));
+  }, []);
+
+  const animStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+    opacity: opacity.value,
+  }));
+
   return (
-    <View style={{
+    <Animated.View style={[{
       width: 84,
       height: 84,
       borderRadius: 42,
-      padding: 3,
-      backgroundColor: '#D4B896',
-    }}>
-      <View style={{
-        flex: 1,
-        borderRadius: 39,
-        backgroundColor: '#1C1C1C',
-        alignItems: 'center',
-        justifyContent: 'center',
-      }}>
-        <Text style={{
-          fontFamily: 'PlayfairDisplay_700Bold',
-          fontSize: 26,
-          color: '#EDEDED',
-          letterSpacing: 1,
+    }, animStyle]}>
+      {/* Gradient shimmer ring */}
+      <LinearGradient
+        colors={['#D4B896', 'rgba(212,184,150,0.35)', '#D4B896']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={{
+          width: 84,
+          height: 84,
+          borderRadius: 42,
+          padding: 3,
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <View style={{
+          width: 78,
+          height: 78,
+          borderRadius: 39,
+          backgroundColor: '#1C1C1C',
+          alignItems: 'center',
+          justifyContent: 'center',
         }}>
-          {initials}
-        </Text>
-      </View>
-    </View>
+          <Text style={{
+            fontFamily: 'PlayfairDisplay_700Bold',
+            fontSize: 26,
+            color: '#EDEDED',
+            letterSpacing: 1,
+          }}>
+            {initials}
+          </Text>
+        </View>
+      </LinearGradient>
+    </Animated.View>
   );
 }
 
@@ -176,62 +279,71 @@ function UserIdentity({ interests }: { interests: string[] }) {
         marginBottom: 16,
       }}>
         <FloatingAvatar initials="JD" />
-        <Pressable
-          style={({ pressed }) => ({
-            opacity: pressed ? 0.5 : 1,
-            borderWidth: 1,
-            borderColor: '#D4D4D4',
-            borderRadius: 20,
-            paddingHorizontal: 16,
-            paddingVertical: 7,
-            marginBottom: 4,
-          })}
-        >
-          <Text style={{
-            fontSize: 12,
-            fontWeight: '500',
-            color: '#1C1C1C',
-            letterSpacing: 0.3,
-          }}>
-            Edit Profile
-          </Text>
-        </Pressable>
+        <Animated.View entering={FadeInDown.delay(400).duration(400).springify()}>
+          {/* Glass Edit Profile button */}
+          <View style={profileStyles.editBtnShadow}>
+            <Pressable
+              onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}
+              style={({ pressed }) => [profileStyles.editBtn, { opacity: pressed ? 0.7 : 1 }]}
+            >
+              {Platform.OS === 'ios' && (
+                <BlurView
+                  intensity={48}
+                  tint="systemChromeMaterialLight"
+                  style={StyleSheet.absoluteFill}
+                />
+              )}
+              <View style={[StyleSheet.absoluteFill, profileStyles.editBtnFill]} pointerEvents="none" />
+              <Text style={profileStyles.editBtnLabel}>Edit Profile</Text>
+            </Pressable>
+          </View>
+        </Animated.View>
       </View>
 
       {/* Name */}
-      <Text style={{
-        fontFamily: 'PlayfairDisplay_700Bold',
-        fontSize: 30,
-        color: '#0A0A0A',
-        letterSpacing: -0.5,
-        lineHeight: 36,
-      }}>
+      <Animated.Text
+        entering={FadeInDown.delay(300).duration(500)}
+        style={{
+          fontFamily: 'PlayfairDisplay_700Bold',
+          fontSize: 30,
+          color: '#0A0A0A',
+          letterSpacing: -0.5,
+          lineHeight: 36,
+        }}
+      >
         John Doe.
-      </Text>
+      </Animated.Text>
 
       {/* Tagline */}
-      <Text style={{
-        fontFamily: 'PlayfairDisplay_400Regular_Italic',
-        fontSize: 14,
-        color: '#6B6B6B',
-        marginTop: 3,
-        marginBottom: 12,
-      }}>
+      <Animated.Text
+        entering={FadeInDown.delay(400).duration(500)}
+        style={{
+          fontFamily: 'PlayfairDisplay_400Regular_Italic',
+          fontSize: 14,
+          color: '#6B6B6B',
+          marginTop: 3,
+          marginBottom: 12,
+        }}
+      >
         {tagline}
-      </Text>
+      </Animated.Text>
 
       {/* Badge */}
-      <View style={{
-        alignSelf: 'flex-start',
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 5,
-        borderWidth: 1,
-        borderColor: '#D4B896',
-        borderRadius: 20,
-        paddingHorizontal: 10,
-        paddingVertical: 4,
-      }}>
+      <Animated.View
+        entering={FadeInDown.delay(500).duration(500)}
+        style={{
+          alignSelf: 'flex-start',
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 5,
+          borderWidth: 1,
+          borderColor: 'rgba(212,184,150,0.6)',
+          borderRadius: 20,
+          paddingHorizontal: 10,
+          paddingVertical: 4,
+          backgroundColor: 'rgba(212,184,150,0.08)',
+        }}
+      >
         <View style={{ width: 5, height: 5, borderRadius: 3, backgroundColor: '#D4B896' }} />
         <Text style={{
           fontSize: 9,
@@ -241,7 +353,7 @@ function UserIdentity({ interests }: { interests: string[] }) {
         }}>
           GENTLEMAN
         </Text>
-      </View>
+      </Animated.View>
     </View>
   );
 }
@@ -257,35 +369,30 @@ function StatsRow({
   interestsCount: number;
 }) {
   return (
-    <View style={{
-      flexDirection: 'row',
-      marginHorizontal: 24,
-      marginTop: 28,
-      paddingVertical: 20,
-      borderTopWidth: 1,
-      borderBottomWidth: 1,
-      borderColor: '#D4D4D4',
-    }}>
-      <StatCell value={String(articlesRead)} label="Articles" />
-      <View style={{ width: 1, backgroundColor: '#D4D4D4', marginVertical: 4 }} />
-      <StatCell value={String(booksSaved)} label="Books" />
-      <View style={{ width: 1, backgroundColor: '#D4D4D4', marginVertical: 4 }} />
-      <StatCell value={String(interestsCount)} label="Interests" />
-    </View>
+    <Animated.View
+      entering={FadeInUp.delay(550).duration(500)}
+      style={{ marginHorizontal: 24, marginTop: 28 }}
+    >
+      <GlassCard intensity={50} borderRadius={20} fillColor="rgba(255,255,255,0.58)">
+        <View style={{
+          flexDirection: 'row',
+          paddingVertical: 20,
+        }}>
+          <StatCell value={articlesRead} label="Articles" delay={600} />
+          <View style={{ width: 1, backgroundColor: 'rgba(0,0,0,0.08)', marginVertical: 4 }} />
+          <StatCell value={booksSaved} label="Books" delay={700} />
+          <View style={{ width: 1, backgroundColor: 'rgba(0,0,0,0.08)', marginVertical: 4 }} />
+          <StatCell value={interestsCount} label="Interests" delay={800} />
+        </View>
+      </GlassCard>
+    </Animated.View>
   );
 }
 
-function StatCell({ value, label }: { value: string; label: string }) {
+function StatCell({ value, label, delay }: { value: number; label: string; delay: number }) {
   return (
     <View style={{ flex: 1, alignItems: 'center' }}>
-      <Text style={{
-        fontFamily: 'PlayfairDisplay_700Bold',
-        fontSize: 24,
-        color: '#0A0A0A',
-        letterSpacing: -0.5,
-      }}>
-        {value}
-      </Text>
+      <AnimatedCounter target={value} delay={delay} />
       <Text style={{
         fontSize: 10,
         color: '#ABABAB',
@@ -303,75 +410,73 @@ function StatCell({ value, label }: { value: string; label: string }) {
 function InterestChips({ interests }: { interests: string[] }) {
   if (interests.length === 0) return null;
   return (
-    <ScrollView
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      contentContainerStyle={{ paddingHorizontal: 24, gap: 8, paddingVertical: 2 }}
-      style={{ marginTop: 18 }}
-    >
-      {interests.map((tag) => (
-        <View key={tag} style={{
-          backgroundColor: '#F0EDE8',
-          borderRadius: 20,
-          paddingHorizontal: 14,
-          paddingVertical: 7,
-          borderWidth: 1,
-          borderColor: '#E8E4DF',
-        }}>
-          <Text style={{
-            fontSize: 12,
-            color: '#1C1C1C',
-            letterSpacing: 0.2,
-          }}>
-            {tag}
-          </Text>
-        </View>
-      ))}
-    </ScrollView>
+    <Animated.View entering={FadeInDown.delay(650).duration(500)}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={{ paddingHorizontal: 24, gap: 8, paddingVertical: 4 }}
+        style={{ marginTop: 16 }}
+      >
+        {interests.map((tag) => (
+          <View
+            key={tag}
+            style={profileStyles.chip}
+          >
+            {Platform.OS === 'ios' && (
+              <BlurView
+                intensity={40}
+                tint="systemChromeMaterialLight"
+                style={StyleSheet.absoluteFill}
+              />
+            )}
+            <View style={[StyleSheet.absoluteFill, profileStyles.chipFill]} pointerEvents="none" />
+            <Text style={profileStyles.chipLabel}>{tag}</Text>
+          </View>
+        ))}
+      </ScrollView>
+    </Animated.View>
   );
 }
 
 // ─── Streak row ───────────────────────────────────────────────────────────────
 function StreakRow() {
   return (
-    <View style={{
-      marginHorizontal: 24,
-      marginTop: 20,
-      backgroundColor: '#F5F5F5',
-      borderRadius: 14,
-      overflow: 'hidden',
-      flexDirection: 'row',
-      alignItems: 'center',
-    }}>
-      {/* Gold accent line */}
-      <View style={{ width: 3, height: '100%', backgroundColor: '#D4B896', position: 'absolute', left: 0 }} />
-      <View style={{
-        flex: 1,
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingHorizontal: 20,
-        paddingVertical: 15,
-        paddingLeft: 20,
-      }}>
-        <Flame size={15} color="#D4B896" strokeWidth={1.5} />
-        <Text style={{
-          flex: 1,
-          fontSize: 14,
-          fontWeight: '500',
-          color: '#1C1C1C',
-          marginLeft: 12,
-        }}>
-          Reading Streak
-        </Text>
-        <Text style={{
-          fontFamily: 'PlayfairDisplay_400Regular_Italic',
-          fontSize: 13,
-          color: '#ABABAB',
-        }}>
-          —
-        </Text>
-      </View>
-    </View>
+    <Animated.View
+      entering={FadeInDown.delay(700).duration(500)}
+      style={{ marginHorizontal: 24, marginTop: 16 }}
+    >
+      <GlassCard intensity={46} borderRadius={18} fillColor="rgba(255,255,255,0.58)">
+        <View style={{ overflow: 'hidden', borderRadius: 18, flexDirection: 'row', alignItems: 'center' }}>
+          {/* Gold left accent */}
+          <View style={{ width: 3, height: '100%', backgroundColor: '#D4B896', position: 'absolute', left: 0 }} />
+          <View style={{
+            flex: 1,
+            flexDirection: 'row',
+            alignItems: 'center',
+            paddingHorizontal: 20,
+            paddingVertical: 15,
+          }}>
+            <Flame size={15} color="#D4B896" strokeWidth={1.5} />
+            <Text style={{
+              flex: 1,
+              fontSize: 14,
+              fontWeight: '500',
+              color: '#1C1C1C',
+              marginLeft: 12,
+            }}>
+              Reading Streak
+            </Text>
+            <Text style={{
+              fontFamily: 'PlayfairDisplay_400Regular_Italic',
+              fontSize: 13,
+              color: '#ABABAB',
+            }}>
+              —
+            </Text>
+          </View>
+        </View>
+      </GlassCard>
+    </Animated.View>
   );
 }
 
@@ -385,7 +490,7 @@ function SectionLabel({ title }: { title: string }) {
       color: '#ABABAB',
       textTransform: 'uppercase',
       paddingHorizontal: 24,
-      paddingTop: 30,
+      paddingTop: 28,
       paddingBottom: 10,
     }}>
       {title}
@@ -408,34 +513,63 @@ function SettingItem({
   const Icon = row.icon;
   const isFirst = index === 0;
   const isLast  = index === total - 1;
+  const scale = useSharedValue(1);
+
+  const animStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  const handlePress = useCallback(() => {
+    scale.value = withSpring(0.97, { damping: 15 }, () => {
+      'worklet';
+      scale.value = withSpring(1, { damping: 15 });
+    });
+    Haptics.selectionAsync();
+    onPress?.();
+  }, [onPress]);
 
   return (
-    <Pressable
-      onPress={onPress}
-      style={({ pressed }) => ({
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingHorizontal: 16,
-        paddingVertical: 14,
-        backgroundColor: pressed ? '#EFEFEF' : '#F5F5F5',
-        borderTopLeftRadius:     isFirst ? 14 : 0,
-        borderTopRightRadius:    isFirst ? 14 : 0,
-        borderBottomLeftRadius:  isLast  ? 14 : 0,
-        borderBottomRightRadius: isLast  ? 14 : 0,
-        borderBottomWidth: isLast ? 0 : 1,
-        borderBottomColor: '#EBEBEB',
-      })}
+    <AnimatedPressable
+      onPress={handlePress}
+      style={[
+        {
+          flexDirection: 'row',
+          alignItems: 'center',
+          paddingHorizontal: 16,
+          paddingVertical: 14,
+          // Glass surface
+          backgroundColor: 'rgba(255,255,255,0.6)',
+          borderTopLeftRadius:     isFirst ? 16 : 0,
+          borderTopRightRadius:    isFirst ? 16 : 0,
+          borderBottomLeftRadius:  isLast  ? 16 : 0,
+          borderBottomRightRadius: isLast  ? 16 : 0,
+          borderBottomWidth: isLast ? 0 : StyleSheet.hairlineWidth,
+          borderBottomColor: 'rgba(0,0,0,0.07)',
+        },
+        animStyle,
+      ]}
       accessibilityRole="button"
       accessibilityLabel={row.label}
     >
+      {/* Glass icon container */}
       <View style={{
         width: 32,
         height: 32,
-        borderRadius: 8,
-        backgroundColor: '#EBEBEB',
+        borderRadius: 9,
+        backgroundColor: 'rgba(255,255,255,0.72)',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.9)',
         alignItems: 'center',
         justifyContent: 'center',
         marginRight: 14,
+        ...Platform.select({
+          ios: {
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.06,
+            shadowRadius: 4,
+          },
+        }),
       }}>
         <Icon size={15} color="#1C1C1C" strokeWidth={1.5} />
       </View>
@@ -460,16 +594,39 @@ function SettingItem({
       )}
 
       <ChevronRight size={14} color="#D4D4D4" strokeWidth={2} />
-    </Pressable>
+    </AnimatedPressable>
   );
 }
 
 // ─── Setting section ──────────────────────────────────────────────────────────
-function SettingSection({ title, rows }: { title: string; rows: SettingRow[] }) {
+function SettingSection({ title, rows, delay }: { title: string; rows: SettingRow[]; delay: number }) {
   return (
-    <>
+    <Animated.View entering={FadeInDown.delay(delay).duration(400)}>
       <SectionLabel title={title} />
-      <View style={{ marginHorizontal: 24, borderRadius: 14, overflow: 'hidden' }}>
+      {/* Glass card wrapper for the whole section */}
+      <View style={{
+        marginHorizontal: 24,
+        borderRadius: 16,
+        overflow: 'hidden',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.85)',
+        ...Platform.select({
+          ios: {
+            shadowColor: '#1C1C1C',
+            shadowOffset: { width: 0, height: 5 },
+            shadowOpacity: 0.08,
+            shadowRadius: 16,
+          },
+          android: { elevation: 6 },
+        }),
+      }}>
+        {Platform.OS === 'ios' && (
+          <BlurView
+            intensity={48}
+            tint="systemChromeMaterialLight"
+            style={StyleSheet.absoluteFill}
+          />
+        )}
         {rows.map((row, i) => (
           <SettingItem
             key={row.id}
@@ -480,7 +637,100 @@ function SettingSection({ title, rows }: { title: string; rows: SettingRow[] }) 
           />
         ))}
       </View>
-    </>
+    </Animated.View>
+  );
+}
+
+// ─── Sign Out Button ──────────────────────────────────────────────────────────
+function SignOutButton({ onPress, disabled }: { onPress: () => void; disabled: boolean }) {
+  const scale = useSharedValue(1);
+  const iconRotate = useSharedValue(0);
+
+  const animStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  const iconStyle = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${iconRotate.value}deg` }],
+  }));
+
+  const handlePressIn = useCallback(() => {
+    scale.value = withSpring(0.96, { damping: 15, stiffness: 200 });
+    iconRotate.value = withSpring(-15, { damping: 12, stiffness: 180 });
+  }, []);
+
+  const handlePressOut = useCallback(() => {
+    scale.value = withSpring(1, { damping: 12, stiffness: 150 });
+    iconRotate.value = withSpring(0, { damping: 12, stiffness: 150 });
+  }, []);
+
+  const handlePress = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    onPress();
+  }, [onPress]);
+
+  return (
+    <Animated.View entering={FadeInDown.delay(1050).duration(400)}>
+      <View style={{
+        marginHorizontal: 24,
+        marginTop: 28,
+        marginBottom: 8,
+        borderRadius: 18,
+        overflow: 'hidden',
+        borderWidth: 1,
+        borderColor: 'rgba(220,100,100,0.3)',
+        ...Platform.select({
+          ios: {
+            shadowColor: '#B83025',
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.1,
+            shadowRadius: 12,
+          },
+          android: { elevation: 4 },
+        }),
+      }}>
+        {Platform.OS === 'ios' && (
+          <BlurView
+            intensity={46}
+            tint="systemChromeMaterialLight"
+            style={StyleSheet.absoluteFill}
+          />
+        )}
+        <AnimatedPressable
+          onPress={handlePress}
+          onPressIn={handlePressIn}
+          onPressOut={handlePressOut}
+          disabled={disabled}
+          style={[
+            {
+              backgroundColor: 'rgba(255,235,235,0.72)',
+              borderRadius: 17,
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 10,
+              paddingVertical: 16,
+              opacity: disabled ? 0.5 : 1,
+            },
+            animStyle,
+          ]}
+          accessibilityRole="button"
+          accessibilityLabel="Sign out"
+        >
+          <Animated.View style={iconStyle}>
+            <LogOut size={16} color="#B83025" strokeWidth={1.8} />
+          </Animated.View>
+          <Text style={{
+            fontSize: 15,
+            fontWeight: '600',
+            color: '#B83025',
+            letterSpacing: 0.3,
+          }}>
+            Sign Out
+          </Text>
+        </AnimatedPressable>
+      </View>
+    </Animated.View>
   );
 }
 
@@ -490,6 +740,13 @@ export default function ProfileTab() {
   const { resetOnboarding, selectedInterests } = useOnboardingStore();
   const { library } = useBooksStore();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const scrollY = useSharedValue(0);
+
+  const scrollHandler = useAnimatedScrollHandler({
+    onScroll: (event) => {
+      scrollY.value = event.contentOffset.y;
+    },
+  });
 
   const handleLogOut = () => {
     Alert.alert(
@@ -511,20 +768,22 @@ export default function ProfileTab() {
   };
 
   return (
-    <ScrollView
+    <AnimatedScrollView
+      onScroll={scrollHandler}
+      scrollEventThrottle={16}
       style={{ flex: 1, backgroundColor: '#EDEDED' }}
       contentContainerStyle={{
         paddingBottom: TAB_BAR_BOTTOM_OFFSET + insets.bottom + 16,
       }}
       showsVerticalScrollIndicator={false}
     >
-      {/* Full-bleed dark banner */}
-      <BannerHeader topInset={insets.top} />
+      {/* Full-bleed dark banner with parallax */}
+      <BannerHeader topInset={insets.top} scrollY={scrollY} />
 
       {/* Identity: avatar (overlaps banner) + name + badge */}
       <UserIdentity interests={selectedInterests} />
 
-      {/* Stats */}
+      {/* Stats glass card */}
       <StatsRow
         articlesRead={12}
         booksSaved={library.length}
@@ -534,49 +793,88 @@ export default function ProfileTab() {
       {/* Interest chips */}
       <InterestChips interests={selectedInterests} />
 
-      {/* Streak */}
+      {/* Streak glass card */}
       <StreakRow />
 
       {/* Account */}
-      <SettingSection title="Account" rows={ACCOUNT_ROWS} />
+      <SettingSection title="Account" rows={ACCOUNT_ROWS} delay={750} />
 
       {/* Settings */}
-      <SettingSection title="Settings" rows={SETTINGS_ROWS} />
+      <SettingSection title="Settings" rows={SETTINGS_ROWS} delay={850} />
 
       {/* Support */}
-      <SettingSection title="Support" rows={SUPPORT_ROWS} />
+      <SettingSection title="Support" rows={SUPPORT_ROWS} delay={950} />
 
       {/* Sign out */}
-      <Pressable
-        onPress={handleLogOut}
-        disabled={isLoggingOut}
-        style={({ pressed }) => ({
-          marginHorizontal: 24,
-          marginTop: 32,
-          marginBottom: 8,
-          backgroundColor: pressed || isLoggingOut ? '#F0E0DF' : '#FDF2F2',
-          borderWidth: 1,
-          borderColor: '#F0CECE',
-          borderRadius: 14,
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: 9,
-          paddingVertical: 15,
-        })}
-        accessibilityRole="button"
-        accessibilityLabel="Sign out"
-      >
-        <LogOut size={15} color="#C0392B" strokeWidth={1.5} />
-        <Text style={{
-          fontSize: 15,
-          fontWeight: '600',
-          color: '#C0392B',
-          letterSpacing: 0.2,
-        }}>
-          Sign Out
-        </Text>
-      </Pressable>
-    </ScrollView>
+      <SignOutButton onPress={handleLogOut} disabled={isLoggingOut} />
+    </AnimatedScrollView>
   );
 }
+
+// ─── Local styles ─────────────────────────────────────────────────────────────
+const profileStyles = StyleSheet.create({
+  editBtnShadow: {
+    borderRadius: 24,
+    marginBottom: 4,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.1,
+        shadowRadius: 12,
+      },
+      android: { elevation: 6 },
+    }),
+  },
+  editBtn: {
+    overflow: 'hidden',
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.88)',
+    paddingHorizontal: 18,
+    paddingVertical: 8,
+    backgroundColor: Platform.select({
+      ios: 'transparent',
+      android: 'rgba(255,255,255,0.72)',
+    }),
+  },
+  editBtnFill: {
+    backgroundColor: 'rgba(255,255,255,0.65)',
+    borderRadius: 24,
+  },
+  editBtnLabel: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#1C1C1C',
+    letterSpacing: 0.3,
+  },
+  chip: {
+    overflow: 'hidden',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.85)',
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    backgroundColor: Platform.select({
+      ios: 'transparent',
+      android: 'rgba(255,255,255,0.65)',
+    }),
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.06,
+        shadowRadius: 6,
+      },
+    }),
+  },
+  chipFill: {
+    backgroundColor: 'rgba(255,255,255,0.62)',
+    borderRadius: 20,
+  },
+  chipLabel: {
+    fontSize: 12,
+    color: '#1C1C1C',
+    letterSpacing: 0.2,
+  },
+});

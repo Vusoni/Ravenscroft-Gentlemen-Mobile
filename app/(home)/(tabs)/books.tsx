@@ -3,6 +3,7 @@ import { TAB_BAR_BOTTOM_OFFSET } from '@/components/GlassTabBar';
 import { useBooksStore } from '@/store/booksStore';
 import { useOnboardingStore } from '@/store/onboardingStore';
 import { Book } from '@/types/book';
+import { BlurView } from 'expo-blur';
 import { router } from 'expo-router';
 import {
   BookMarked,
@@ -18,7 +19,9 @@ import {
   Dimensions,
   FlatList,
   Image,
+  Platform,
   Pressable,
+  StyleSheet,
   Text,
   TextInput,
   View,
@@ -435,20 +438,26 @@ export default function BooksTab() {
         </Pressable>
       </View>
 
-      {/* Animated search bar */}
+      {/* Animated search bar — glass pill */}
       <Animated.View style={[searchStyle, { paddingHorizontal: 20 }]}>
-        <View style={{ backgroundColor: '#F5F5F5', borderRadius: 12, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, height: 44 }}>
-          <Search size={14} color="#6B6B6B" strokeWidth={1.5} />
-          <TextInput
-            value={query}
-            onChangeText={handleQueryChange}
-            placeholder="Search any book…"
-            placeholderTextColor="#ABABAB"
-            style={{ flex: 1, marginLeft: 8, fontFamily: 'PlayfairDisplay_400Regular', fontSize: 14, color: '#0A0A0A' }}
-            autoCapitalize="none"
-            autoCorrect={false}
-          />
-          {searching && <SearchDots />}
+        <View style={booksStyles.searchBarShadow}>
+          <View style={booksStyles.searchBar}>
+            {Platform.OS === 'ios' && (
+              <BlurView intensity={52} tint="systemChromeMaterialLight" style={StyleSheet.absoluteFill} />
+            )}
+            <View style={[StyleSheet.absoluteFill, booksStyles.searchBarFill]} pointerEvents="none" />
+            <Search size={14} color="#6B6B6B" strokeWidth={1.5} />
+            <TextInput
+              value={query}
+              onChangeText={handleQueryChange}
+              placeholder="Search any book…"
+              placeholderTextColor="#ABABAB"
+              style={{ flex: 1, marginLeft: 8, fontFamily: 'PlayfairDisplay_400Regular', fontSize: 14, color: '#0A0A0A' }}
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+            {searching && <SearchDots />}
+          </View>
         </View>
       </Animated.View>
 
@@ -462,15 +471,17 @@ export default function BooksTab() {
                 <Pressable
                   key={id}
                   onPress={() => setActiveTab(id)}
-                  style={{
-                    paddingHorizontal: 14,
-                    paddingVertical: 7,
-                    borderRadius: 20,
-                    backgroundColor: active ? '#0A0A0A' : 'transparent',
-                    borderWidth: 1,
-                    borderColor: active ? '#0A0A0A' : '#D4D4D4',
-                  }}
+                  style={[
+                    booksStyles.subTabPill,
+                    active ? booksStyles.subTabPillActive : booksStyles.subTabPillInactive,
+                  ]}
                 >
+                  {!active && Platform.OS === 'ios' && (
+                    <BlurView intensity={44} tint="systemChromeMaterialLight" style={StyleSheet.absoluteFill} />
+                  )}
+                  {!active && (
+                    <View style={[StyleSheet.absoluteFill, booksStyles.subTabPillInactiveFill]} pointerEvents="none" />
+                  )}
                   <Text style={{
                     fontFamily: active ? 'PlayfairDisplay_700Bold' : 'PlayfairDisplay_400Regular',
                     fontSize: 12,
@@ -553,3 +564,69 @@ export default function BooksTab() {
     </SafeAreaView>
   );
 }
+
+// ─── Books tab styles ─────────────────────────────────────────────────────────
+const booksStyles = StyleSheet.create({
+  // Glass search bar
+  searchBarShadow: {
+    borderRadius: 14,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.08,
+        shadowRadius: 10,
+      },
+      android: { elevation: 5 },
+    }),
+  },
+  searchBar: {
+    overflow: 'hidden',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.88)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    height: 44,
+    backgroundColor: Platform.select({
+      ios: 'transparent',
+      android: 'rgba(255,255,255,0.72)',
+    }),
+  },
+  searchBarFill: {
+    backgroundColor: 'rgba(255,255,255,0.65)',
+    borderRadius: 14,
+  },
+  // Sub-tab pills
+  subTabPill: {
+    overflow: 'hidden',
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  subTabPillActive: {
+    backgroundColor: 'rgba(10,10,10,0.88)',
+    borderColor: 'rgba(10,10,10,0.88)',
+  },
+  subTabPillInactive: {
+    backgroundColor: Platform.select({
+      ios: 'transparent',
+      android: 'rgba(255,255,255,0.6)',
+    }),
+    borderColor: 'rgba(255,255,255,0.85)',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.06,
+        shadowRadius: 6,
+      },
+    }),
+  },
+  subTabPillInactiveFill: {
+    backgroundColor: 'rgba(255,255,255,0.58)',
+    borderRadius: 20,
+  },
+});

@@ -1,5 +1,6 @@
 // components/GlassTabBar.tsx
 import { BottomTabBarProps } from "@react-navigation/bottom-tabs";
+import { BlurView } from "expo-blur";
 import * as Haptics from "expo-haptics";
 import {
   BookOpen,
@@ -8,19 +9,22 @@ import {
   Sparkles,
   User,
 } from "lucide-react-native";
+import { useEffect } from "react";
 import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import Animated, {
+  FadeIn,
+  interpolate,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
+  withTiming,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
-export const TAB_BAR_HEIGHT = 64;
-// Use this to compute bottom padding in screens: TAB_BAR_BOTTOM_OFFSET + insets.bottom
-export const TAB_BAR_BOTTOM_OFFSET = TAB_BAR_HEIGHT + 8 + 16; // bar + margin + breathing room
+export const TAB_BAR_HEIGHT = 66;
+export const TAB_BAR_BOTTOM_OFFSET = TAB_BAR_HEIGHT + 8 + 16;
 
 type LucideIcon = typeof BookOpen;
 
@@ -32,6 +36,9 @@ const TAB_CONFIG: Record<string, { icon: LucideIcon; label: string }> = {
   profile: { icon: User, label: "Profile" },
 };
 
+const TAB_COUNT = Object.keys(TAB_CONFIG).length;
+
+// ─── Single tab item ──────────────────────────────────────────────────────────
 function TabItem({
   routeName,
   isFocused,
@@ -46,13 +53,32 @@ function TabItem({
   const { icon: Icon, label } = config;
 
   const scale = useSharedValue(1);
-  const animStyle = useAnimatedStyle(() => ({
+  const pillOpacity = useSharedValue(isFocused ? 1 : 0);
+  const pillScale = useSharedValue(isFocused ? 1 : 0.6);
+  const iconOpacity = useSharedValue(isFocused ? 1 : 0.5);
+
+  useEffect(() => {
+    pillOpacity.value = withTiming(isFocused ? 1 : 0, { duration: 220 });
+    pillScale.value = withSpring(isFocused ? 1 : 0.6, { damping: 16, stiffness: 240 });
+    iconOpacity.value = withTiming(isFocused ? 1 : 0.5, { duration: 200 });
+  }, [isFocused]);
+
+  const containerAnimStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
   }));
 
+  const pillAnimStyle = useAnimatedStyle(() => ({
+    opacity: pillOpacity.value,
+    transform: [{ scale: pillScale.value }],
+  }));
+
+  const iconAnimStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(iconOpacity.value, [0.5, 1], [0.55, 1]),
+  }));
+
   const handlePress = () => {
-    scale.value = withSpring(0.82, { damping: 14 }, () => {
-      'worklet';
+    scale.value = withSpring(0.84, { damping: 14 }, () => {
+      "worklet";
       scale.value = withSpring(1, { damping: 14 });
     });
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -61,19 +87,25 @@ function TabItem({
 
   return (
     <AnimatedPressable
-      style={[styles.tabItem, animStyle]}
+      style={[styles.tabItem, containerAnimStyle]}
       onPress={handlePress}
       accessibilityRole="tab"
       accessibilityState={{ selected: isFocused }}
       accessibilityLabel={label}
     >
-      <View style={[styles.iconWrapper, isFocused && styles.iconWrapperActive]}>
+      {/* Active pill behind the icon */}
+      <Animated.View style={[styles.activePill, pillAnimStyle]} />
+
+      {/* Icon */}
+      <Animated.View style={[styles.iconWrapper, iconAnimStyle]}>
         <Icon
-          size={20}
-          color={isFocused ? "#0A0A0A" : "#6B6B6B"}
+          size={19}
+          color={isFocused ? "#EDEDED" : "#6B6B6B"}
           strokeWidth={isFocused ? 2 : 1.5}
         />
-      </View>
+      </Animated.View>
+
+      {/* Label */}
       <Text
         style={[
           styles.label,
@@ -86,44 +118,63 @@ function TabItem({
   );
 }
 
+// ─── Tab bar ─────────────────────────────────────────────────────────────────
 export function GlassTabBar({ state, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
 
   return (
-    <View
-      style={[styles.wrapper, { bottom: insets.bottom + 8 }]}
+    <Animated.View
+      entering={FadeIn.delay(200).duration(400)}
+      style={[styles.wrapper, { bottom: insets.bottom + 10 }]}
       pointerEvents="box-none"
     >
-      <View style={styles.bar}>
-        {state.routes.map((route, index) => {
-          const isFocused = state.index === index;
+      {/* Outer container — handles shadow */}
+      <View style={styles.shadowLayer}>
+        {/* Glass pill — rounded rectangle with blur */}
+        <View style={styles.outerBar}>
+          {/* True frosted glass (iOS) */}
+          <BlurView
+            intensity={70}
+            tint="systemChromeMaterialLight"
+            style={StyleSheet.absoluteFill}
+          />
 
-          const onPress = () => {
-            const event = navigation.emit({
-              type: "tabPress",
-              target: route.key,
-              canPreventDefault: true,
-            });
-            if (!isFocused && !event.defaultPrevented) {
-              navigation.navigate(route.name);
-            }
-          };
+          {/* Semi-transparent white tint over blur */}
+          <View style={[StyleSheet.absoluteFill, styles.glassTint]} />
 
-          return (
-            <TabItem
-              key={route.key}
-              routeName={route.name}
-              isFocused={isFocused}
-              onPress={onPress}
-            />
-          );
-        })}
+          {/* Bottom / right dark hairline for depth */}
+          <View style={[StyleSheet.absoluteFill, styles.darkHairline]} />
+
+          {/* Tab items */}
+          <View style={styles.tabRow}>
+            {state.routes.map((route, index) => {
+              const isFocused = state.index === index;
+              const onPress = () => {
+                const event = navigation.emit({
+                  type: "tabPress",
+                  target: route.key,
+                  canPreventDefault: true,
+                });
+                if (!isFocused && !event.defaultPrevented) {
+                  navigation.navigate(route.name);
+                }
+              };
+              return (
+                <TabItem
+                  key={route.key}
+                  routeName={route.name}
+                  isFocused={isFocused}
+                  onPress={onPress}
+                />
+              );
+            })}
+          </View>
+        </View>
       </View>
-    </View>
+    </Animated.View>
   );
 }
 
-// Styles
 const styles = StyleSheet.create({
   wrapper: {
     position: "absolute",
@@ -132,27 +183,48 @@ const styles = StyleSheet.create({
     height: TAB_BAR_HEIGHT,
     pointerEvents: "box-none",
   },
-  bar: {
+  shadowLayer: {
+    flex: 1,
+    borderRadius: 24,
+    // Multi-layer shadow for a "floating" glass feel
+    ...Platform.select({
+      ios: {
+        shadowColor: "#0A0A0A",
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.14,
+        shadowRadius: 28,
+      },
+      android: {
+        elevation: 14,
+      },
+    }),
+  },
+  outerBar: {
+    flex: 1,
+    borderRadius: 24,
+    overflow: "hidden",
+    // Top/left highlight border
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.88)",
+    backgroundColor: Platform.select({
+      ios: "transparent",
+      android: "rgba(245,245,245,0.93)",
+    }),
+  },
+  glassTint: {
+    backgroundColor: "rgba(255,255,255,0.52)",
+    borderRadius: 24,
+  },
+  darkHairline: {
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: "rgba(0,0,0,0.055)",
+  },
+  tabRow: {
     flex: 1,
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(245, 245, 245, 0.88)",
-    borderRadius: 22,
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.8)",
-    paddingHorizontal: 4,
-    overflow: "hidden",
-    ...Platform.select({
-      ios: {
-        shadowColor: "#1C1C1C",
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.14,
-        shadowRadius: 24,
-      },
-      android: {
-        elevation: 12,
-      },
-    }),
+    paddingHorizontal: 6,
   },
   tabItem: {
     flex: 1,
@@ -160,6 +232,15 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingVertical: 8,
     gap: 3,
+    position: "relative",
+  },
+  activePill: {
+    position: "absolute",
+    top: 7,
+    width: 38,
+    height: 30,
+    borderRadius: 10,
+    backgroundColor: "rgba(10,10,10,0.88)",
   },
   iconWrapper: {
     width: 38,
@@ -167,9 +248,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     borderRadius: 10,
-  },
-  iconWrapperActive: {
-    backgroundColor: "rgba(10, 10, 10, 0.07)",
   },
   label: {
     fontSize: 9,

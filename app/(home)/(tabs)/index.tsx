@@ -1,10 +1,11 @@
 // app/(home)/(tabs)/index.tsx — Articles tab
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { TAB_BAR_BOTTOM_OFFSET } from '@/components/GlassTabBar';
+import { BlurView } from 'expo-blur';
 import { router } from 'expo-router';
 import { ArrowRight, BookOpen } from 'lucide-react-native';
 import { type ReactNode, useEffect, useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
   useAnimatedStyle,
@@ -212,7 +213,7 @@ export default function ArticlesTab() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-ivory" edges={['top']}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#EDEDED' }} edges={['top']}>
       <WelcomeModal
         visible={showWelcome}
         onOpenGuide={openGuide}
@@ -220,103 +221,116 @@ export default function ArticlesTab() {
       />
 
       <ScrollView
-        className="flex-1"
+        style={{ flex: 1 }}
         contentContainerStyle={{ paddingBottom: TAB_BAR_BOTTOM_OFFSET + insets.bottom }}
         showsVerticalScrollIndicator={false}
       >
         {/* Top bar */}
-        <View className="flex-row items-center justify-between px-6 pt-4 pb-6">
-          <Text
-            className="text-ink text-2xl"
-            style={{ fontFamily: 'PlayfairDisplay_700Bold' }}
-          >
+        <View style={articleStyles.topBar}>
+          <Text style={articleStyles.topBarTitle}>
             Ravenscroft
           </Text>
-          <View className="w-8 h-8 rounded-full bg-charcoal/10 items-center justify-center">
-            <Text className="text-ink text-xs font-semibold">R</Text>
+          {/* Glass avatar pill */}
+          <View style={articleStyles.avatarPillShadow}>
+            <View style={articleStyles.avatarPill}>
+              {Platform.OS === 'ios' && (
+                <BlurView
+                  intensity={50}
+                  tint="systemChromeMaterialLight"
+                  style={StyleSheet.absoluteFill}
+                />
+              )}
+              <View style={[StyleSheet.absoluteFill, articleStyles.avatarPillFill]} pointerEvents="none" />
+              <Text style={articleStyles.avatarPillText}>R</Text>
+            </View>
           </View>
         </View>
 
         {/* Feed card — dark */}
-        <View className="mx-6 mb-6 rounded-2xl overflow-hidden bg-ink">
+        <View style={articleStyles.feedCard}>
           {/* Image placeholder */}
-          <View className="h-48 bg-charcoal/80 items-end justify-start p-4">
-            <Text
-              className="text-ivory/30 text-[10px] tracking-widest uppercase"
-              style={{ fontFamily: 'PlayfairDisplay_400Regular_Italic' }}
-            >
-              Image
-            </Text>
+          <View style={articleStyles.feedImageArea}>
+            {/* Subtle glass shimmer at top of image */}
+            <View style={articleStyles.feedImageShimmer} />
+            <Text style={articleStyles.feedImageLabel}>Image</Text>
           </View>
 
           {/* Card body */}
-          <View className="p-5 gap-4">
-            <Text className="text-ivory/50 text-[10px] tracking-widest uppercase">
+          <View style={articleStyles.feedBody}>
+            <Text style={articleStyles.feedCategory}>
               {ARTICLE.category}
             </Text>
 
-            <Text
-              className="text-ivory text-xl leading-6"
-              style={{ fontFamily: 'PlayfairDisplay_700Bold' }}
-            >
+            <Text style={articleStyles.feedTitle}>
               {ARTICLE.title}
             </Text>
 
+            {/* Glass "Generate Summary" pill */}
             <Pressable
               onPress={handleGenerateSummary}
-              className="flex-row items-center gap-2 self-start"
+              style={articleStyles.summaryBtnWrapper}
               accessibilityRole="button"
               accessibilityLabel="Generate Summary"
             >
-              <View className="bg-ivory/10 rounded-full px-4 py-2 flex-row items-center gap-2">
-                <Text className="text-ivory text-xs font-semibold tracking-wide">
-                  Generate Summary
-                </Text>
+              <View style={articleStyles.summaryBtn}>
+                {Platform.OS === 'ios' && (
+                  <BlurView
+                    intensity={20}
+                    tint="dark"
+                    style={StyleSheet.absoluteFill}
+                  />
+                )}
+                <View style={[StyleSheet.absoluteFill, articleStyles.summaryBtnFill]} pointerEvents="none" />
+                <Text style={articleStyles.summaryBtnLabel}>Generate Summary</Text>
                 <ArrowRight size={12} color="#EDEDED" />
               </View>
             </Pressable>
           </View>
         </View>
 
-        {/* Article preview card */}
+        {/* Article preview card — glass surface */}
         <PressCard onPress={() => router.push('/(home)/article')}>
-          <View className="mx-6 rounded-2xl overflow-hidden bg-white border border-border">
+          <View style={articleStyles.previewCard}>
+            {Platform.OS === 'ios' && (
+              <BlurView
+                intensity={52}
+                tint="systemChromeMaterialLight"
+                style={[StyleSheet.absoluteFill, { borderRadius: 20 }]}
+              />
+            )}
+            {/* Glass fill */}
+            <View style={[StyleSheet.absoluteFill, articleStyles.previewCardFill]} pointerEvents="none" />
+            {/* Dark hairline depth */}
+            <View style={[StyleSheet.absoluteFill, articleStyles.previewCardHairline]} pointerEvents="none" />
+
             {/* Nav bar */}
-            <View className="flex-row items-center px-4 py-3 border-b border-border">
-              <Text className="text-muted text-xs">← Back To Home</Text>
+            <View style={articleStyles.previewNav}>
+              <Text style={articleStyles.previewNavLabel}>← Back To Home</Text>
             </View>
 
             {/* Article header */}
-            <View className="px-5 pt-4 pb-3">
-              <Text
-                className="text-ink text-base leading-6 mb-1"
-                style={{ fontFamily: 'PlayfairDisplay_700Bold' }}
-              >
+            <View style={articleStyles.previewHeader}>
+              <Text style={articleStyles.previewTitle}>
                 The Art Activities and Interests
               </Text>
-              <Text className="text-muted text-[10px]">ravenscroft · 01 Mar 2026 · 15 min</Text>
+              <Text style={articleStyles.previewMeta}>ravenscroft · 01 Mar 2026 · 15 min</Text>
             </View>
 
             {/* Body excerpt */}
-            <View className="px-5 pb-3">
-              <Text className="text-charcoal text-xs leading-4 mb-4" numberOfLines={5}>
+            <View style={articleStyles.previewBody}>
+              <Text style={articleStyles.previewExcerpt} numberOfLines={5}>
                 We're like, if a bunch of Art students opened a Swiss Design Studio in the back of a
                 Skate Shop. It's a collision of worlds; a dance of contrasts — a harmonious disarray.
                 For our clients and partners, it means a journey of leveraging seemingly disparate
                 elements to craft compelling and lasting narratives.
               </Text>
 
-              <View className="border-t border-border pt-3">
-                <Text
-                  className="text-ink text-xs font-semibold mb-2"
-                  style={{ fontFamily: 'PlayfairDisplay_700Bold' }}
-                >
-                  Summary
-                </Text>
+              <View style={articleStyles.previewSummaryBlock}>
+                <Text style={articleStyles.previewSummaryLabel}>Summary</Text>
                 {ARTICLE.summary.map((point, i) => (
-                  <View key={i} className="flex-row gap-2 mb-2">
-                    <Text className="text-muted text-[10px] mt-0.5">•</Text>
-                    <Text className="text-charcoal text-[10px] leading-4 flex-1">{point}</Text>
+                  <View key={i} style={articleStyles.previewSummaryRow}>
+                    <Text style={articleStyles.previewBullet}>•</Text>
+                    <Text style={articleStyles.previewSummaryText}>{point}</Text>
                   </View>
                 ))}
               </View>
@@ -327,3 +341,231 @@ export default function ArticlesTab() {
     </SafeAreaView>
   );
 }
+
+const articleStyles = StyleSheet.create({
+  topBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 24,
+    paddingTop: 16,
+    paddingBottom: 24,
+  },
+  topBarTitle: {
+    fontFamily: 'PlayfairDisplay_700Bold',
+    fontSize: 24,
+    color: '#0A0A0A',
+  },
+  avatarPillShadow: {
+    borderRadius: 16,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.09,
+        shadowRadius: 10,
+      },
+      android: { elevation: 5 },
+    }),
+  },
+  avatarPill: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.88)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Platform.select({
+      ios: 'transparent',
+      android: 'rgba(255,255,255,0.68)',
+    }),
+  },
+  avatarPillFill: {
+    backgroundColor: 'rgba(255,255,255,0.65)',
+    borderRadius: 17,
+  },
+  avatarPillText: {
+    fontFamily: 'PlayfairDisplay_700Bold',
+    fontSize: 13,
+    color: '#0A0A0A',
+  },
+  feedCard: {
+    marginHorizontal: 24,
+    marginBottom: 20,
+    borderRadius: 22,
+    overflow: 'hidden',
+    backgroundColor: '#0A0A0A',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#0A0A0A',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.22,
+        shadowRadius: 24,
+      },
+      android: { elevation: 12 },
+    }),
+  },
+  feedImageArea: {
+    height: 192,
+    backgroundColor: 'rgba(28,28,28,0.85)',
+    justifyContent: 'flex-end',
+    alignItems: 'flex-end',
+    padding: 16,
+  },
+  feedImageShimmer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 60,
+    backgroundColor: 'rgba(255,255,255,0.04)',
+  },
+  feedImageLabel: {
+    fontFamily: 'PlayfairDisplay_400Regular_Italic',
+    fontSize: 10,
+    color: 'rgba(237,237,237,0.3)',
+    letterSpacing: 2,
+    textTransform: 'uppercase',
+  },
+  feedBody: {
+    padding: 20,
+    gap: 16,
+  },
+  feedCategory: {
+    fontSize: 10,
+    color: 'rgba(237,237,237,0.5)',
+    letterSpacing: 2,
+    textTransform: 'uppercase',
+  },
+  feedTitle: {
+    fontFamily: 'PlayfairDisplay_700Bold',
+    fontSize: 20,
+    color: '#EDEDED',
+    lineHeight: 26,
+  },
+  summaryBtnWrapper: {
+    alignSelf: 'flex-start',
+  },
+  summaryBtn: {
+    overflow: 'hidden',
+    borderRadius: 50,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.22)',
+    paddingHorizontal: 16,
+    paddingVertical: 9,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: Platform.select({
+      ios: 'transparent',
+      android: 'rgba(255,255,255,0.12)',
+    }),
+  },
+  summaryBtnFill: {
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderRadius: 50,
+  },
+  summaryBtnLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#EDEDED',
+    letterSpacing: 0.4,
+  },
+  // Glass article preview card
+  previewCard: {
+    marginHorizontal: 24,
+    borderRadius: 20,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.88)',
+    backgroundColor: Platform.select({
+      ios: 'transparent',
+      android: 'rgba(255,255,255,0.76)',
+    }),
+    ...Platform.select({
+      ios: {
+        shadowColor: '#1C1C1C',
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.09,
+        shadowRadius: 18,
+      },
+      android: { elevation: 8 },
+    }),
+  },
+  previewCardFill: {
+    backgroundColor: 'rgba(255,255,255,0.72)',
+    borderRadius: 20,
+  },
+  previewCardHairline: {
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.05)',
+  },
+  previewNav: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(0,0,0,0.08)',
+  },
+  previewNavLabel: {
+    fontSize: 12,
+    color: '#6B6B6B',
+  },
+  previewHeader: {
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 12,
+  },
+  previewTitle: {
+    fontFamily: 'PlayfairDisplay_700Bold',
+    fontSize: 16,
+    color: '#0A0A0A',
+    lineHeight: 24,
+    marginBottom: 4,
+  },
+  previewMeta: {
+    fontSize: 10,
+    color: '#6B6B6B',
+  },
+  previewBody: {
+    paddingHorizontal: 20,
+    paddingBottom: 16,
+  },
+  previewExcerpt: {
+    fontSize: 12,
+    color: '#1C1C1C',
+    lineHeight: 18,
+    marginBottom: 16,
+  },
+  previewSummaryBlock: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: 'rgba(0,0,0,0.08)',
+    paddingTop: 12,
+  },
+  previewSummaryLabel: {
+    fontFamily: 'PlayfairDisplay_700Bold',
+    fontSize: 12,
+    color: '#0A0A0A',
+    marginBottom: 8,
+  },
+  previewSummaryRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 6,
+  },
+  previewBullet: {
+    fontSize: 10,
+    color: '#6B6B6B',
+    marginTop: 1,
+  },
+  previewSummaryText: {
+    fontSize: 10,
+    color: '#1C1C1C',
+    lineHeight: 16,
+    flex: 1,
+  },
+});

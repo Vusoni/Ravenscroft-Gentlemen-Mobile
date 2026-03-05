@@ -10,7 +10,26 @@
       "Bash(ls -la \"/Users/oliwierkraszewski/Documents/01 Projects/Gentlemen-App/app/\\(home\\)/\")",
       "Read(//Users/oliwierkraszewski/Documents/01\\\\ Projects/Gentlemen-App/store/**)",
       "Read(//Users/oliwierkraszewski/Documents/01\\\\ Projects/Gentlemen-App/types/**)",
-      "Read(//Users/oliwierkraszewski/Documents/01\\\\ Projects/Gentlemen-App/app/\\(home\\)/**)"
+      "Read(//Users/oliwierkraszewski/Documents/01\\\\ Projects/Gentlemen-App/app/\\(home\\)/**)",
+      "WebFetch(domain:www.youtube.com)",
+      "WebFetch(domain:expo.dev)",
+      "Read(//Users/oliwierkraszewski/Documents/01\\\\ Projects/Gentlemen-App/**)",
+      "Bash(cat \"/Users/oliwierkraszewski/Documents/01 Projects/Gentlemen-App/app/\\(home\\)/\\(tabs\\)/messages.tsx\")",
+      "Bash(cat \"/Users/oliwierkraszewski/Documents/01 Projects/Gentlemen-App/app/\\(home\\)/\\(tabs\\)/assistant.tsx\")",
+      "Bash(cat \"/Users/oliwierkraszewski/Documents/01 Projects/Gentlemen-App/app/\\(home\\)/article.tsx\")",
+      "Bash(cat \"/Users/oliwierkraszewski/Documents/01 Projects/Gentlemen-App/app/\\(home\\)/book-detail.tsx\")",
+      "Bash(cat \"/Users/oliwierkraszewski/Documents/01 Projects/Gentlemen-App/app/\\(home\\)/book-reader.tsx\")",
+      "Bash(cat \"/Users/oliwierkraszewski/Documents/01 Projects/Gentlemen-App/app/\\(home\\)/book-notes.tsx\")",
+      "Bash(cat \"/Users/oliwierkraszewski/Documents/01 Projects/Gentlemen-App/app/\\(home\\)/app-guide.tsx\")",
+      "Bash(cat \"/Users/oliwierkraszewski/Documents/01 Projects/Gentlemen-App/app/\\(onboarding\\)/_layout.tsx\")",
+      "Bash(cat \"/Users/oliwierkraszewski/Documents/01 Projects/Gentlemen-App/app/\\(onboarding\\)/screen-1-ravenscroft.tsx\")",
+      "Bash(cat \"/Users/oliwierkraszewski/Documents/01 Projects/Gentlemen-App/app/\\(onboarding\\)/screen-4-interests.tsx\")",
+      "Bash(cat \"/Users/oliwierkraszewski/Documents/01 Projects/Gentlemen-App/app/\\(onboarding\\)/screen-5-birth.tsx\")",
+      "Bash(npx expo install expo@^55.0.0 --fix)",
+      "Bash(npx expo install expo-blur)",
+      "Bash(npx expo-doctor@latest)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:developers.notion.com)"
     ],
     "additionalDirectories": [
       "/Users/oliwierkraszewski/Documents/01 Projects/Gentlemen-App/assets/elegant-images"
