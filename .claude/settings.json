@@ -7,7 +7,10 @@
       "Read(//Users/oliwierkraszewski/Documents/01\\\\ Projects/Gentlemen-App/app/\\\\\\(home\\\\\\)/**)",
       "Read(//Users/oliwierkraszewski/Documents/01\\\\ Projects/Gentlemen-App/constants/**)",
       "Bash(ls -la \"/Users/oliwierkraszewski/Documents/01 Projects/Gentlemen-App/app/\\\\\\(home\\\\\\)/\")",
-      "Bash(ls -la \"/Users/oliwierkraszewski/Documents/01 Projects/Gentlemen-App/app/\\(home\\)/\")"
+      "Bash(ls -la \"/Users/oliwierkraszewski/Documents/01 Projects/Gentlemen-App/app/\\(home\\)/\")",
+      "Read(//Users/oliwierkraszewski/Documents/01\\\\ Projects/Gentlemen-App/store/**)",
+      "Read(//Users/oliwierkraszewski/Documents/01\\\\ Projects/Gentlemen-App/types/**)",
+      "Read(//Users/oliwierkraszewski/Documents/01\\\\ Projects/Gentlemen-App/app/\\(home\\)/**)"
     ],
     "additionalDirectories": [
       "/Users/oliwierkraszewski/Documents/01 Projects/Gentlemen-App/assets/elegant-images"

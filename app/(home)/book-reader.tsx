@@ -1,4 +1,4 @@
-// app/(home)/book-reader.tsx — Kindle-like reading screen
+// app/(home)/book-reader.tsx — Apple Books-inspired reading screen
 import { GUTENBERG_TEXT_MAP } from '@/constants/gutenbergMap';
 import { useBooksStore } from '@/store/booksStore';
 import { useNotesStore } from '@/store/notesStore';
@@ -8,6 +8,8 @@ import { router, useLocalSearchParams } from 'expo-router';
 import {
   ArrowLeft,
   BookOpen,
+  Check,
+  List,
   Moon,
   PenLine,
   Sun,
@@ -23,6 +25,7 @@ import {
   Modal,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -52,6 +55,8 @@ const THEMES = {
     border: '#D4D4D4',
     surface: '#EDEDED',
     icon: '#0A0A0A',
+    progress: '#0A0A0A',
+    progressTrack: '#D4D4D4',
   },
   sepia: {
     bg: '#F4ECD8',
@@ -61,6 +66,8 @@ const THEMES = {
     border: '#D4C5A9',
     surface: '#EDE0C4',
     icon: '#3B2A1A',
+    progress: '#3B2A1A',
+    progressTrack: '#D4C5A9',
   },
   dark: {
     bg: '#1C1C1C',
@@ -70,11 +77,32 @@ const THEMES = {
     border: '#333333',
     surface: '#2C2C2C',
     icon: '#EDEDED',
+    progress: '#EDEDED',
+    progressTrack: '#444444',
   },
 } as const;
 
 const FONT_SIZES: Record<FontSize, number> = { S: 14, M: 17, L: 20 };
 const LINE_HEIGHTS: Record<FontSize, number> = { S: 22, M: 28, L: 34 };
+
+// ─── Data types ───────────────────────────────────────────────────────────────
+
+interface Page {
+  text: string;
+  dropCapLetter?: string;
+  chapterTitle?: string;
+  chapterSubtitle?: string;
+  isChapterStart: boolean;
+  chapterIndex: number;
+  pageInChapter: number;
+  totalPagesInChapter: number;
+}
+
+interface ChapterInfo {
+  title: string;
+  subtitle: string | null;
+  body: string;
+}
 
 // ─── Text processing ─────────────────────────────────────────────────────────
 
@@ -96,13 +124,129 @@ function stripGutenbergHeader(raw: string): string {
   return body.trim();
 }
 
-function paginateText(text: string, wordsPerPage: number): string[] {
-  const words = text.split(/\s+/).filter(Boolean);
-  const pages: string[] = [];
-  for (let i = 0; i < words.length; i += wordsPerPage) {
-    pages.push(words.slice(i, i + wordsPerPage).join(' '));
+// Chapter heading detection — covers all major Gutenberg formatting styles
+const KEYWORD_HEADING_RE = /^(CHAPTER|BOOK|PART|PROLOGUE|EPILOGUE|PREFACE|INTRODUCTION|APPENDIX|INTERLUDE|SECTION)\b/i;
+const ROMAN_HEADING_RE = /^[IVXLC]{1,6}[.)]\s/;
+const NUMERIC_HEADING_RE = /^\d{1,3}\.\s/;
+
+function isHeadingLine(trimmed: string, prevLineWasBlank: boolean): boolean {
+  if (!trimmed || trimmed.length > 80) return false;
+  // Gutenberg headings are always preceded by a blank line
+  if (!prevLineWasBlank) return false;
+  return (
+    KEYWORD_HEADING_RE.test(trimmed) ||
+    ROMAN_HEADING_RE.test(trimmed) ||
+    NUMERIC_HEADING_RE.test(trimmed)
+  );
+}
+
+function parseChapters(text: string): ChapterInfo[] {
+  const lines = text.split('\n');
+  const chapters: ChapterInfo[] = [];
+  let currentTitle = '';
+  let currentSubtitle: string | null = null;
+  let currentBodyLines: string[] = [];
+  let inChapter = false;
+  let prevLineWasBlank = true; // treat document start as blank
+  let prevLineWasHeading = false;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const trimmed = line.trim();
+
+    if (!trimmed) {
+      prevLineWasBlank = true;
+      if (inChapter) currentBodyLines.push(line);
+      continue;
+    }
+
+    if (isHeadingLine(trimmed, prevLineWasBlank)) {
+      // Save previous chapter if it has content
+      if (inChapter && currentBodyLines.join('').trim()) {
+        chapters.push({
+          title: currentTitle,
+          subtitle: currentSubtitle,
+          body: currentBodyLines.join('\n').trim(),
+        });
+      }
+      currentTitle = trimmed;
+      currentSubtitle = null;
+      currentBodyLines = [];
+      inChapter = true;
+      prevLineWasBlank = false;
+      prevLineWasHeading = true;
+      continue;
+    }
+
+    // Subtitle: first non-empty line right after a heading that looks like a label not body
+    if (prevLineWasHeading && trimmed.length < 60 && !/[.!?]/.test(trimmed)) {
+      currentSubtitle = trimmed;
+      prevLineWasBlank = false;
+      prevLineWasHeading = false;
+      continue;
+    }
+
+    prevLineWasBlank = false;
+    prevLineWasHeading = false;
+    if (inChapter) currentBodyLines.push(line);
   }
-  return pages;
+
+  // Push the last chapter
+  if (inChapter && currentBodyLines.join('').trim()) {
+    chapters.push({
+      title: currentTitle,
+      subtitle: currentSubtitle,
+      body: currentBodyLines.join('\n').trim(),
+    });
+  }
+
+  // Fallback: no chapters detected — treat entire text as one section
+  if (chapters.length === 0) {
+    chapters.push({ title: '', subtitle: null, body: text.trim() });
+  }
+
+  return chapters;
+}
+
+function buildPages(chapters: ChapterInfo[], wordsPerPage: number): { pages: Page[]; chapterFirstPages: number[] } {
+  const pages: Page[] = [];
+  const chapterFirstPages: number[] = [];
+
+  chapters.forEach((chapter, chapterIndex) => {
+    const words = chapter.body.split(/\s+/).filter(Boolean);
+    const chunks: string[] = [];
+    for (let i = 0; i < words.length; i += wordsPerPage) {
+      chunks.push(words.slice(i, i + wordsPerPage).join(' '));
+    }
+    if (chunks.length === 0) return;
+
+    const totalPagesInChapter = chunks.length;
+    chapterFirstPages.push(pages.length);
+
+    chunks.forEach((chunk, pageInChapter) => {
+      const isChapterStart = pageInChapter === 0;
+      let text = chunk;
+      let dropCapLetter: string | undefined;
+
+      if (isChapterStart && text.length > 0) {
+        dropCapLetter = text[0];
+        text = text.slice(1);
+      }
+
+      pages.push({
+        text,
+        dropCapLetter,
+        chapterTitle: chapter.title || undefined,
+        chapterSubtitle: chapter.subtitle || undefined,
+        isChapterStart,
+        chapterIndex,
+        pageInChapter,
+        totalPagesInChapter,
+      });
+    });
+  });
+
+  return { pages, chapterFirstPages };
 }
 
 // ─── Skeleton ─────────────────────────────────────────────────────────────────
@@ -114,7 +258,6 @@ function SkeletonBlock({ height, color }: { height: number; color: string }) {
       withTiming(0.65, { duration: 700 }),
       withTiming(0.35, { duration: 700 }),
     );
-    // loop manually
     const id = setInterval(() => {
       opacity.value = withSequence(
         withTiming(0.65, { duration: 700 }),
@@ -125,7 +268,7 @@ function SkeletonBlock({ height, color }: { height: number; color: string }) {
   }, []);
   const anim = useAnimatedStyle(() => ({ opacity: opacity.value }));
   return (
-    <View style={{ height, borderRadius: 6, overflow: 'hidden', marginBottom: 8 }}>
+    <View style={{ height, borderRadius: 6, overflow: 'hidden', marginBottom: 10 }}>
       <Animated.View style={[{ flex: 1, backgroundColor: color }, anim]} />
     </View>
   );
@@ -140,7 +283,8 @@ export default function BookReaderScreen() {
   const { getReadingProgress, setReadingProgress } = useBooksStore();
   const { addNote, hydrate: hydrateNotes } = useNotesStore();
 
-  const [pages, setPages] = useState<string[]>([]);
+  const [pages, setPages] = useState<Page[]>([]);
+  const [chapterFirstPages, setChapterFirstPages] = useState<number[]>([]);
   const [pageIndex, setPageIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -149,7 +293,9 @@ export default function BookReaderScreen() {
   const [showControls, setShowControls] = useState(true);
   const [showFontPicker, setShowFontPicker] = useState(false);
   const [showNoteModal, setShowNoteModal] = useState(false);
+  const [showChaptersModal, setShowChaptersModal] = useState(false);
   const [noteText, setNoteText] = useState('');
+  const [prevPageIndex, setPrevPageIndex] = useState<number | null>(null);
 
   const t = THEMES[theme];
   const controlsOpacity = useSharedValue(1);
@@ -159,7 +305,9 @@ export default function BookReaderScreen() {
   const saveProgressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const availableForReading = GUTENBERG_TEXT_MAP[book.id] !== undefined;
 
-  // ── Fetch & process text + hydrate notes ────────────────────────────────────
+  const currentPage = pages[pageIndex];
+
+  // ── Fetch & process text ────────────────────────────────────────────────────
   useEffect(() => {
     hydrateNotes();
     if (!availableForReading) {
@@ -175,10 +323,12 @@ export default function BookReaderScreen() {
       .then((raw) => {
         InteractionManager.runAfterInteractions(() => {
           const clean = stripGutenbergHeader(raw);
-          const chunks = paginateText(clean, 300);
+          const chapters = parseChapters(clean);
+          const { pages: builtPages, chapterFirstPages: cfp } = buildPages(chapters, 300);
           const saved = getReadingProgress(book.id);
-          setPages(chunks);
-          setPageIndex(Math.min(saved, Math.max(chunks.length - 1, 0)));
+          setPages(builtPages);
+          setChapterFirstPages(cfp);
+          setPageIndex(Math.min(saved, Math.max(builtPages.length - 1, 0)));
           setLoading(false);
         });
       })
@@ -213,7 +363,7 @@ export default function BookReaderScreen() {
   }));
 
   // ── Page navigation ─────────────────────────────────────────────────────────
-  const goToPage = (newIndex: number) => {
+  const goToPage = (newIndex: number, saveJumpFrom?: number) => {
     if (newIndex < 0 || newIndex >= pages.length) return;
     const direction = newIndex > pageIndex ? -1 : 1;
 
@@ -224,10 +374,13 @@ export default function BookReaderScreen() {
       contentTranslateX.value = withTiming(0, { duration: 180 });
     });
 
+    if (saveJumpFrom !== undefined) {
+      setPrevPageIndex(saveJumpFrom);
+    }
+
     setPageIndex(newIndex);
     setShowControls(true);
 
-    // Debounced progress save
     if (saveProgressTimer.current) clearTimeout(saveProgressTimer.current);
     saveProgressTimer.current = setTimeout(() => {
       setReadingProgress(book.id, newIndex);
@@ -260,6 +413,14 @@ export default function BookReaderScreen() {
   };
 
   const ThemeIcon = theme === 'dark' ? Moon : theme === 'sepia' ? Sunset : Sun;
+
+  // ── Progress bar ─────────────────────────────────────────────────────────────
+  const progressFraction = pages.length > 1 ? pageIndex / (pages.length - 1) : 0;
+
+  // ── Chapter label for nav ─────────────────────────────────────────────────────
+  const chapterLabel = currentPage?.chapterTitle
+    ? currentPage.chapterTitle.replace(/^(CHAPTER|Chapter)\s+/, 'Ch. ').slice(0, 20)
+    : '';
 
   // ── Not available ───────────────────────────────────────────────────────────
   if (!availableForReading) {
@@ -311,7 +472,10 @@ export default function BookReaderScreen() {
           </Pressable>
         </View>
         <View style={styles.loadingContainer}>
-          <SkeletonBlock height={18} color="#D4D4D4" />
+          {/* Chapter title skeleton */}
+          <View style={{ alignItems: 'center', marginBottom: 28, marginTop: 16 }}>
+            <SkeletonBlock height={22} color="#D4D4D4" />
+          </View>
           <SkeletonBlock height={18} color="#D4D4D4" />
           <SkeletonBlock height={18} color="#D4D4D4" />
           <SkeletonBlock height={18} color="#D4D4D4" />
@@ -332,13 +496,29 @@ export default function BookReaderScreen() {
       onPress={() => { setShowFontPicker(false); }}
     >
       <SafeAreaView style={styles.flex} edges={['top', 'bottom']}>
+
         {/* Nav bar */}
         <Animated.View style={[styles.navBar, { backgroundColor: t.nav, borderBottomColor: t.border }, controlsAnimStyle]}>
           <Pressable onPress={() => router.back()} style={styles.navBack}>
             <ArrowLeft size={16} color={t.muted} strokeWidth={1.5} />
-            <Text style={[styles.navTitle, { color: t.muted }]} numberOfLines={1}>{book.title}</Text>
           </Pressable>
+          {/* Chapter label centered */}
+          <View style={styles.navCenter}>
+            {chapterLabel ? (
+              <Text style={[styles.navChapterLabel, { color: t.muted }]} numberOfLines={1}>
+                {chapterLabel}
+              </Text>
+            ) : null}
+          </View>
           <View style={styles.navActions}>
+            {/* Chapters list */}
+            <Pressable
+              onPress={(e) => { e.stopPropagation(); setShowChaptersModal(true); }}
+              hitSlop={10}
+              style={styles.navIconBtn}
+            >
+              <List size={17} color={t.icon} strokeWidth={1.5} />
+            </Pressable>
             {/* Font size toggle */}
             <View>
               <Pressable
@@ -386,48 +566,99 @@ export default function BookReaderScreen() {
               <Pressable style={styles.flex} onPress={handleCentreTap} />
               <Pressable style={styles.flex} onPress={() => goToPage(pageIndex + 1)} />
             </View>
+
             {/* Text content */}
             <View style={styles.pageContent} pointerEvents="none">
-              <Text
-                style={[
-                  styles.pageText,
-                  {
-                    fontSize: FONT_SIZES[fontSize],
-                    lineHeight: LINE_HEIGHTS[fontSize],
-                    color: t.text,
-                  },
-                ]}
-              >
-                {pages[pageIndex]}
-              </Text>
+              {/* Chapter header — shown only at chapter start */}
+              {currentPage?.isChapterStart && currentPage.chapterTitle ? (
+                <View style={styles.chapterHeader}>
+                  <Text style={[styles.chapterTitle, { color: t.text }]}>
+                    {currentPage.chapterTitle}
+                  </Text>
+                  {currentPage.chapterSubtitle ? (
+                    <Text style={[styles.chapterSubtitle, { color: t.muted }]}>
+                      {currentPage.chapterSubtitle}
+                    </Text>
+                  ) : null}
+                </View>
+              ) : null}
+
+              {/* Body text with optional drop cap */}
+              {currentPage ? (
+                currentPage.isChapterStart && currentPage.dropCapLetter ? (
+                  <Text
+                    style={[
+                      styles.pageText,
+                      {
+                        fontSize: FONT_SIZES[fontSize],
+                        lineHeight: LINE_HEIGHTS[fontSize],
+                        color: t.text,
+                      },
+                    ]}
+                  >
+                    <Text style={[styles.dropCap, { color: t.text }]}>
+                      {currentPage.dropCapLetter}
+                    </Text>
+                    {currentPage.text}
+                  </Text>
+                ) : (
+                  <Text
+                    style={[
+                      styles.pageText,
+                      {
+                        fontSize: FONT_SIZES[fontSize],
+                        lineHeight: LINE_HEIGHTS[fontSize],
+                        color: t.text,
+                      },
+                    ]}
+                  >
+                    {currentPage.text}
+                  </Text>
+                )
+              ) : null}
             </View>
           </Animated.View>
         </GestureDetector>
 
-        {/* Bottom controls */}
+        {/* Bottom bar — progress bar + page indicator */}
         <Animated.View style={[styles.bottomBar, { backgroundColor: t.nav, borderTopColor: t.border }, controlsAnimStyle]}>
-          <Pressable
-            onPress={() => goToPage(pageIndex - 1)}
-            disabled={pageIndex === 0}
-            hitSlop={12}
-            style={[styles.pageNavBtn, { opacity: pageIndex === 0 ? 0.3 : 1 }]}
-          >
-            <Text style={[styles.pageNavText, { color: t.text }]}>‹</Text>
-          </Pressable>
-          <Text style={[styles.pageIndicator, { color: t.muted }]}>
-            {pageIndex + 1} of {pages.length}
-          </Text>
-          <Pressable
-            onPress={() => goToPage(pageIndex + 1)}
-            disabled={pageIndex === pages.length - 1}
-            hitSlop={12}
-            style={[styles.pageNavBtn, { opacity: pageIndex === pages.length - 1 ? 0.3 : 1 }]}
-          >
-            <Text style={[styles.pageNavText, { color: t.text }]}>›</Text>
-          </Pressable>
+          {/* Progress bar track */}
+          <View style={[styles.progressTrack, { backgroundColor: t.progressTrack }]}>
+            <View
+              style={[
+                styles.progressFill,
+                { backgroundColor: t.progress, width: `${progressFraction * 100}%` },
+              ]}
+            />
+          </View>
+          {/* Labels row */}
+          <View style={styles.progressLabels}>
+            {/* Back to previous position */}
+            {prevPageIndex !== null ? (
+              <Pressable
+                onPress={() => {
+                  const prev = prevPageIndex;
+                  setPrevPageIndex(null);
+                  goToPage(prev);
+                }}
+                hitSlop={8}
+              >
+                <Text style={[styles.backToLabel, { color: t.muted }]}>
+                  Back to p.{prevPageIndex + 1}
+                </Text>
+              </Pressable>
+            ) : (
+              <View style={styles.progressLabelSpacer} />
+            )}
+            {/* Page count centered */}
+            <Text style={[styles.pageIndicator, { color: t.muted }]}>
+              {pageIndex + 1} of {pages.length}
+            </Text>
+            <View style={styles.progressLabelSpacer} />
+          </View>
         </Animated.View>
 
-        {/* Floating note button — always visible */}
+        {/* Floating note button */}
         <Pressable
           style={[styles.floatingNoteBtn, { backgroundColor: t.text }]}
           onPress={() => { setNoteText(''); setShowNoteModal(true); }}
@@ -437,7 +668,7 @@ export default function BookReaderScreen() {
           <PenLine size={16} color={t.bg} strokeWidth={1.5} />
         </Pressable>
 
-        {/* Note modal */}
+        {/* ── Note modal ──────────────────────────────────────────────────────── */}
         <Modal
           visible={showNoteModal}
           animationType="slide"
@@ -449,7 +680,6 @@ export default function BookReaderScreen() {
               style={{ flex: 1 }}
               behavior={Platform.OS === 'ios' ? 'padding' : undefined}
             >
-              {/* Modal header */}
               <View style={[styles.modalHeader, { borderBottomColor: t.border }]}>
                 <Text style={[styles.modalTitle, { color: t.text }]}>
                   Note — Page {pageIndex + 1}
@@ -458,8 +688,6 @@ export default function BookReaderScreen() {
                   <X size={18} color={t.muted} strokeWidth={1.5} />
                 </Pressable>
               </View>
-
-              {/* Text input */}
               <TextInput
                 value={noteText}
                 onChangeText={setNoteText}
@@ -469,8 +697,6 @@ export default function BookReaderScreen() {
                 autoFocus
                 style={[styles.noteInput, { color: t.text, backgroundColor: t.bg }]}
               />
-
-              {/* Save button */}
               <Pressable
                 style={[styles.noteSaveBtn, { backgroundColor: t.text, opacity: noteText.trim() ? 1 : 0.4 }]}
                 disabled={!noteText.trim()}
@@ -486,6 +712,68 @@ export default function BookReaderScreen() {
             </KeyboardAvoidingView>
           </SafeAreaView>
         </Modal>
+
+        {/* ── Chapters modal ──────────────────────────────────────────────────── */}
+        <Modal
+          visible={showChaptersModal}
+          animationType="slide"
+          presentationStyle="pageSheet"
+          onRequestClose={() => setShowChaptersModal(false)}
+        >
+          <SafeAreaView style={{ flex: 1, backgroundColor: t.bg }} edges={['top', 'bottom']}>
+            <View style={[styles.modalHeader, { borderBottomColor: t.border }]}>
+              <Text style={[styles.modalTitle, { color: t.text }]}>Chapters</Text>
+              <Pressable onPress={() => setShowChaptersModal(false)} hitSlop={12}>
+                <X size={18} color={t.muted} strokeWidth={1.5} />
+              </Pressable>
+            </View>
+            <ScrollView contentContainerStyle={styles.chaptersListContent}>
+              {chapterFirstPages.map((firstPageIdx, i) => {
+                const chapterPage = pages[firstPageIdx];
+                if (!chapterPage) return null;
+                const isCurrentChapter = currentPage?.chapterIndex === i;
+                const title = chapterPage.chapterTitle || `Section ${i + 1}`;
+                const subtitle = chapterPage.chapterSubtitle;
+                return (
+                  <Pressable
+                    key={i}
+                    style={[
+                      styles.chapterRow,
+                      { borderBottomColor: t.border },
+                      isCurrentChapter && { backgroundColor: t.surface },
+                    ]}
+                    onPress={() => {
+                      setShowChaptersModal(false);
+                      goToPage(firstPageIdx, pageIndex);
+                    }}
+                  >
+                    <View style={styles.chapterRowText}>
+                      <Text
+                        style={[
+                          styles.chapterRowTitle,
+                          { color: isCurrentChapter ? t.text : t.muted },
+                          isCurrentChapter && { fontFamily: 'PlayfairDisplay_700Bold' },
+                        ]}
+                        numberOfLines={1}
+                      >
+                        {title}
+                      </Text>
+                      {subtitle ? (
+                        <Text style={[styles.chapterRowSubtitle, { color: t.muted }]} numberOfLines={1}>
+                          {subtitle}
+                        </Text>
+                      ) : null}
+                    </View>
+                    {isCurrentChapter ? (
+                      <Check size={15} color={t.text} strokeWidth={2} />
+                    ) : null}
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          </SafeAreaView>
+        </Modal>
+
       </SafeAreaView>
     </Pressable>
   );
@@ -493,20 +781,27 @@ export default function BookReaderScreen() {
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
+
+  // ── Nav ────────────────────────────────────────────────────────────────────
   navBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
   navBack: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    flex: 1,
+    padding: 4,
     marginRight: 8,
+  },
+  navCenter: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  navChapterLabel: {
+    fontFamily: 'PlayfairDisplay_400Regular_Italic',
+    fontSize: 12,
+    letterSpacing: 0.2,
   },
   navTitle: {
     fontFamily: 'PlayfairDisplay_400Regular',
@@ -521,6 +816,8 @@ const styles = StyleSheet.create({
   navIconBtn: {
     padding: 4,
   },
+
+  // ── Font picker ────────────────────────────────────────────────────────────
   fontPicker: {
     position: 'absolute',
     top: 34,
@@ -546,6 +843,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+
+  // ── Page content ───────────────────────────────────────────────────────────
   tapZonesRow: {
     ...StyleSheet.absoluteFillObject,
     flexDirection: 'row',
@@ -554,36 +853,102 @@ const styles = StyleSheet.create({
   pageContent: {
     ...StyleSheet.absoluteFillObject,
     paddingHorizontal: 28,
-    paddingVertical: 24,
+    paddingVertical: 20,
     justifyContent: 'flex-start',
     zIndex: 1,
   },
+
+  // ── Chapter header ─────────────────────────────────────────────────────────
+  chapterHeader: {
+    alignItems: 'center',
+    marginBottom: 24,
+    marginTop: 12,
+  },
+  chapterTitle: {
+    fontFamily: 'PlayfairDisplay_400Regular_Italic',
+    fontSize: 26,
+    textAlign: 'center',
+    letterSpacing: 0.3,
+  },
+  chapterSubtitle: {
+    fontFamily: 'PlayfairDisplay_400Regular_Italic',
+    fontSize: 14,
+    textAlign: 'center',
+    marginTop: 6,
+    letterSpacing: 0.2,
+  },
+
+  // ── Text ───────────────────────────────────────────────────────────────────
   pageText: {
     fontFamily: 'PlayfairDisplay_400Regular',
     textAlign: 'left',
   },
+  dropCap: {
+    fontFamily: 'PlayfairDisplay_700Bold',
+    fontSize: 72,
+    lineHeight: 60,
+  },
+
+  // ── Bottom bar ─────────────────────────────────────────────────────────────
   bottomBar: {
+    paddingHorizontal: 20,
+    paddingTop: 10,
+    paddingBottom: 8,
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  progressTrack: {
+    height: 3,
+    borderRadius: 2,
+    overflow: 'hidden',
+    marginBottom: 10,
+  },
+  progressFill: {
+    height: '100%',
+    borderRadius: 2,
+  },
+  progressLabels: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderTopWidth: StyleSheet.hairlineWidth,
   },
-  pageNavBtn: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-  },
-  pageNavText: {
-    fontFamily: 'PlayfairDisplay_400Regular',
-    fontSize: 24,
-    lineHeight: 28,
-  },
-  pageIndicator: {
+  backToLabel: {
     fontFamily: 'PlayfairDisplay_400Regular',
     fontSize: 11,
-    letterSpacing: 0.5,
+    letterSpacing: 0.3,
   },
+  pageIndicator: {
+    fontFamily: 'PlayfairDisplay_700Bold',
+    fontSize: 12,
+    letterSpacing: 0.5,
+    textAlign: 'center',
+  },
+  progressLabelSpacer: {
+    width: 60,
+  },
+
+  // ── Floating note button ───────────────────────────────────────────────────
+  floatingNoteBtn: {
+    position: 'absolute',
+    bottom: 72,
+    right: 20,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 20,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.2,
+        shadowRadius: 8,
+      },
+      android: { elevation: 6 },
+    }),
+  },
+
+  // ── Centred states ─────────────────────────────────────────────────────────
   centredState: {
     flex: 1,
     alignItems: 'center',
@@ -608,26 +973,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 28,
     paddingTop: 24,
   },
-  floatingNoteBtn: {
-    position: 'absolute',
-    bottom: 72,
-    right: 20,
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 20,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.2,
-        shadowRadius: 8,
-      },
-      android: { elevation: 6 },
-    }),
-  },
+
+  // ── Modals ─────────────────────────────────────────────────────────────────
   modalHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -663,5 +1010,31 @@ const styles = StyleSheet.create({
     fontSize: 13,
     letterSpacing: 1.8,
     textTransform: 'uppercase',
+  },
+
+  // ── Chapters list ──────────────────────────────────────────────────────────
+  chaptersListContent: {
+    paddingVertical: 4,
+  },
+  chapterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  chapterRowText: {
+    flex: 1,
+    marginRight: 12,
+  },
+  chapterRowTitle: {
+    fontFamily: 'PlayfairDisplay_400Regular',
+    fontSize: 14,
+    letterSpacing: 0.2,
+  },
+  chapterRowSubtitle: {
+    fontFamily: 'PlayfairDisplay_400Regular_Italic',
+    fontSize: 12,
+    marginTop: 2,
   },
 });

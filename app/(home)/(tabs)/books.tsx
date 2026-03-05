@@ -1,9 +1,17 @@
-// app/(home)/(tabs)/books.tsx — Books library with search + trending discover
+// app/(home)/(tabs)/books.tsx — Books library with search, trending discover, and For You shelf
 import { TAB_BAR_BOTTOM_OFFSET } from '@/components/GlassTabBar';
 import { useBooksStore } from '@/store/booksStore';
+import { useOnboardingStore } from '@/store/onboardingStore';
 import { Book } from '@/types/book';
 import { router } from 'expo-router';
-import { BookMarked, BookOpen, Search, TrendingUp, X } from 'lucide-react-native';
+import {
+  BookMarked,
+  BookOpen,
+  Search,
+  Sparkles,
+  TrendingUp,
+  X,
+} from 'lucide-react-native';
 import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -18,6 +26,8 @@ import {
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
+  withRepeat,
+  withSequence,
   withSpring,
   withTiming,
 } from 'react-native-reanimated';
@@ -28,10 +38,11 @@ const CARD_GAP = 12;
 const CARD_H_PAD = 20;
 const CARD_W = (SCREEN_W - CARD_H_PAD * 2 - CARD_GAP) / 2;
 const COVER_H = CARD_W * 1.5;
+const COVER_H_LIBRARY = CARD_W * 1.65;
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
-// ─── Classic fallback (shown while trending loads / on network error) ──────────
+// ─── Curated fallback ─────────────────────────────────────────────────────────
 const CURATED_FALLBACK: Book[] = [
   { id: 'OL45804W',   title: 'Meditations',                  author: 'Marcus Aurelius',     genre: 'Philosophy',  pageCount: 254,  coverUrl: 'https://covers.openlibrary.org/b/isbn/9780140449334-L.jpg' },
   { id: 'OL66768W',   title: 'The Old Man and the Sea',       author: 'Ernest Hemingway',    genre: 'Literature',  pageCount: 127,  coverUrl: 'https://covers.openlibrary.org/b/isbn/9780684801223-L.jpg' },
@@ -46,6 +57,18 @@ const CURATED_FALLBACK: Book[] = [
   { id: 'OL15403W',   title: 'On the Shortness of Life',      author: 'Seneca',              genre: 'Philosophy',  pageCount: 97,   coverUrl: 'https://covers.openlibrary.org/b/isbn/9780143036326-L.jpg' },
   { id: 'OL22025W',   title: 'The Art of War',                author: 'Sun Tzu',             genre: 'Strategy',    pageCount: 112,  coverUrl: 'https://covers.openlibrary.org/b/isbn/9781590302255-L.jpg' },
 ];
+
+// ─── Interest → query map ─────────────────────────────────────────────────────
+const INTEREST_QUERIES: Record<string, string> = {
+  'Exercise':         'fitness health high performance athlete',
+  'Literature':       'classic literature fiction masterpiece timeless',
+  'Stoicism':         'stoicism philosophy ancient wisdom marcus aurelius',
+  'Journaling':       'journaling self reflection introspection writing',
+  'Travel & Culture': 'travel culture world discovery civilization',
+  'Music':            'music history culture theory composition',
+  'Theatre & Cinema': 'cinema film arts theatre screenplay',
+  'Morning Rituals':  'morning routine discipline habits excellence',
+};
 
 // ─── Open Library trending API ────────────────────────────────────────────────
 type OLWork = {
@@ -121,7 +144,35 @@ async function searchGoogleBooks(query: string): Promise<Book[]> {
   }));
 }
 
-// ─── Fallback cover colour ─────────────────────────────────────────────────────
+async function fetchForYouBooks(interests: string[]): Promise<Book[]> {
+  const queries = interests.slice(0, 4).map((i) => INTEREST_QUERIES[i]).filter(Boolean);
+  const results = await Promise.allSettled(queries.map((q) => searchGoogleBooks(q)));
+  const seen = new Set<string>();
+  const books: Book[] = [];
+  for (const result of results) {
+    if (result.status === 'fulfilled') {
+      for (const book of result.value.slice(0, 5)) {
+        if (!seen.has(book.id) && book.coverUrl) {
+          seen.add(book.id);
+          books.push(book);
+        }
+      }
+    }
+  }
+  return books;
+}
+
+// ─── Relative date ────────────────────────────────────────────────────────────
+function getRelativeDate(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const days = Math.floor(diff / 86400000);
+  if (days === 0) return 'today';
+  if (days === 1) return 'yesterday';
+  if (days < 30) return `${days} days ago`;
+  return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+}
+
+// ─── Cover colour ─────────────────────────────────────────────────────────────
 const COVER_COLORS = ['#1C1C1C', '#2C2C2C', '#3B2F2F', '#2B3A2B', '#2B2B3A', '#3A2B38', '#3A352B'];
 function coverColor(id: string): string {
   let n = 0;
@@ -129,10 +180,45 @@ function coverColor(id: string): string {
   return COVER_COLORS[n % COVER_COLORS.length];
 }
 
+// ─── Search dot (single animated dot) ────────────────────────────────────────
+function SearchDot({ delay }: { delay: number }) {
+  const opacity = useSharedValue(0.2);
+  useEffect(() => {
+    setTimeout(() => {
+      opacity.value = withRepeat(
+        withSequence(withTiming(1, { duration: 480 }), withTiming(0.2, { duration: 480 })),
+        -1,
+        false,
+      );
+    }, delay);
+  }, []);
+  const s = useAnimatedStyle(() => ({ opacity: opacity.value }));
+  return <Animated.View style={[s, { width: 5, height: 5, borderRadius: 2.5, backgroundColor: '#ABABAB' }]} />;
+}
+
+function SearchDots() {
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+      <SearchDot delay={0} />
+      <SearchDot delay={190} />
+      <SearchDot delay={380} />
+    </View>
+  );
+}
+
 // ─── BookCard ─────────────────────────────────────────────────────────────────
-function BookCard({ book, inLibrary }: { book: Book; inLibrary: boolean }) {
+function BookCard({
+  book,
+  inLibrary,
+  isLibraryView = false,
+}: {
+  book: Book;
+  inLibrary: boolean;
+  isLibraryView?: boolean;
+}) {
   const scale = useSharedValue(1);
   const animStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+  const coverH = isLibraryView ? COVER_H_LIBRARY : COVER_H;
 
   return (
     <AnimatedPressable
@@ -146,13 +232,9 @@ function BookCard({ book, inLibrary }: { book: Book; inLibrary: boolean }) {
       accessibilityLabel={`${book.title} by ${book.author}`}
     >
       {/* Cover */}
-      <View style={{ width: CARD_W, height: COVER_H, borderRadius: 10, overflow: 'hidden', backgroundColor: coverColor(book.id) }}>
+      <View style={{ width: CARD_W, height: coverH, borderRadius: 10, overflow: 'hidden', backgroundColor: coverColor(book.id) }}>
         {book.coverUrl ? (
-          <Image
-            source={{ uri: book.coverUrl }}
-            style={{ width: CARD_W, height: COVER_H }}
-            resizeMode="cover"
-          />
+          <Image source={{ uri: book.coverUrl }} style={{ width: CARD_W, height: coverH }} resizeMode="cover" />
         ) : (
           <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
             <Text style={{ fontFamily: 'PlayfairDisplay_700Bold', fontSize: 36, color: 'rgba(255,255,255,0.20)' }}>
@@ -160,41 +242,65 @@ function BookCard({ book, inLibrary }: { book: Book; inLibrary: boolean }) {
             </Text>
           </View>
         )}
-        {inLibrary && (
+
+        {/* Library badge — in-use everywhere except library view itself */}
+        {inLibrary && !isLibraryView && (
           <View style={{ position: 'absolute', top: 8, right: 8, backgroundColor: '#0A0A0A', borderRadius: 12, width: 24, height: 24, alignItems: 'center', justifyContent: 'center' }}>
             <BookMarked size={12} color="#EDEDED" strokeWidth={2} />
+          </View>
+        )}
+
+        {/* Library view — bottom gradient author strip */}
+        {isLibraryView && (
+          <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, paddingHorizontal: 8, paddingBottom: 7, paddingTop: 14, backgroundColor: 'rgba(10,10,10,0.5)' }}>
+            <Text style={{ fontFamily: 'PlayfairDisplay_400Regular_Italic', fontSize: 9, color: 'rgba(237,237,237,0.7)', letterSpacing: 0.3 }} numberOfLines={1}>
+              {book.author}
+            </Text>
           </View>
         )}
       </View>
 
       {/* Meta */}
-      <View style={{ marginTop: 8, gap: 3 }}>
+      <View style={{ marginTop: 8, gap: 2 }}>
         <Text numberOfLines={2} style={{ fontFamily: 'PlayfairDisplay_700Bold', fontSize: 13, color: '#0A0A0A', lineHeight: 18 }}>
           {book.title}
         </Text>
-        <Text numberOfLines={1} style={{ fontSize: 11, fontStyle: 'italic', color: '#6B6B6B' }}>
-          {book.author}
-        </Text>
+        {!isLibraryView && (
+          <Text numberOfLines={1} style={{ fontSize: 11, fontStyle: 'italic', color: '#6B6B6B' }}>
+            {book.author}
+          </Text>
+        )}
+        {isLibraryView && book.addedAt && (
+          <Text style={{ fontFamily: 'PlayfairDisplay_400Regular', fontSize: 10, color: '#ABABAB', letterSpacing: 0.2 }}>
+            Added {getRelativeDate(book.addedAt)}
+          </Text>
+        )}
       </View>
     </AnimatedPressable>
   );
 }
 
 // ─── Main screen ──────────────────────────────────────────────────────────────
+type ActiveTab = 'library' | 'discover' | 'foryou';
+
 export default function BooksTab() {
   const insets = useSafeAreaInsets();
   const { library, hydrate, isInLibrary } = useBooksStore();
+  const { selectedInterests, checkOnboardingStatus } = useOnboardingStore();
 
-  const [activeTab, setActiveTab] = useState<'library' | 'discover'>('discover');
+  const [activeTab, setActiveTab] = useState<ActiveTab>('discover');
   const [searchOpen, setSearchOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Book[]>([]);
   const [searching, setSearching] = useState(false);
 
-  // Trending state — seeded with curated fallback
   const [trendingBooks, setTrendingBooks] = useState<Book[]>(CURATED_FALLBACK);
   const [trendingLoading, setTrendingLoading] = useState(true);
   const trendingFetched = useRef(false);
+
+  const [forYouBooks, setForYouBooks] = useState<Book[]>([]);
+  const [forYouLoading, setForYouLoading] = useState(false);
+  const forYouFetched = useRef(false);
 
   const searchH = useSharedValue(0);
   const searchStyle = useAnimatedStyle(() => ({ height: searchH.value, overflow: 'hidden' }));
@@ -202,15 +308,29 @@ export default function BooksTab() {
 
   useEffect(() => {
     hydrate();
-    // Fetch trending on mount
+    if (selectedInterests.length === 0) {
+      checkOnboardingStatus();
+    }
     if (!trendingFetched.current) {
       trendingFetched.current = true;
       fetchTrendingBooks()
         .then((books) => { if (books.length > 0) setTrendingBooks(books); })
-        .catch(() => { /* keep fallback */ })
+        .catch(() => {})
         .finally(() => setTrendingLoading(false));
     }
   }, [hydrate]);
+
+  // Lazy-load For You on first visit
+  useEffect(() => {
+    if (activeTab === 'foryou' && !forYouFetched.current && selectedInterests.length > 0) {
+      forYouFetched.current = true;
+      setForYouLoading(true);
+      fetchForYouBooks(selectedInterests)
+        .then(setForYouBooks)
+        .catch(() => {})
+        .finally(() => setForYouLoading(false));
+    }
+  }, [activeTab, selectedInterests]);
 
   const toggleSearch = () => {
     const open = !searchOpen;
@@ -241,16 +361,12 @@ export default function BooksTab() {
     ? searchResults
     : activeTab === 'library'
       ? library
-      : trendingBooks;
+      : activeTab === 'foryou'
+        ? forYouBooks
+        : trendingBooks;
 
   const renderEmpty = () => {
-    if (showingSearch && searching) {
-      return (
-        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 60 }}>
-          <ActivityIndicator color="#6B6B6B" />
-        </View>
-      );
-    }
+    if (showingSearch && searching) return null;
     if (showingSearch) {
       return (
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 60 }}>
@@ -271,8 +387,39 @@ export default function BooksTab() {
         </View>
       );
     }
+    if (activeTab === 'foryou') {
+      if (forYouLoading) {
+        return (
+          <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 60 }}>
+            <ActivityIndicator color="#6B6B6B" />
+            <Text style={{ fontFamily: 'PlayfairDisplay_400Regular_Italic', fontSize: 13, color: '#6B6B6B', marginTop: 12 }}>
+              Curating your shelf…
+            </Text>
+          </View>
+        );
+      }
+      if (selectedInterests.length === 0) {
+        return (
+          <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 60, paddingHorizontal: 32 }}>
+            <Sparkles size={36} color="#D4D4D4" strokeWidth={1} />
+            <Text style={{ fontFamily: 'PlayfairDisplay_700Bold', fontSize: 20, color: '#0A0A0A', marginTop: 16, marginBottom: 6, textAlign: 'center' }}>
+              No Interests Set
+            </Text>
+            <Text style={{ fontFamily: 'PlayfairDisplay_400Regular_Italic', fontSize: 13, color: '#6B6B6B', textAlign: 'center', lineHeight: 20 }}>
+              Visit your Profile to set your interests and unlock a personalised shelf.
+            </Text>
+          </View>
+        );
+      }
+    }
     return null;
   };
+
+  const TAB_LABELS: { id: ActiveTab; label: string }[] = [
+    { id: 'library',  label: 'My Library' },
+    { id: 'discover', label: 'Discover' },
+    { id: 'foryou',   label: 'For You' },
+  ];
 
   return (
     <SafeAreaView className="flex-1 bg-ivory" edges={['top']}>
@@ -301,44 +448,77 @@ export default function BooksTab() {
             autoCapitalize="none"
             autoCorrect={false}
           />
-          {searching && <ActivityIndicator size="small" color="#6B6B6B" />}
+          {searching && <SearchDots />}
         </View>
       </Animated.View>
 
-      {/* Tab row */}
+      {/* Tabs + metadata row */}
       {!showingSearch && (
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 12, paddingBottom: 4 }}>
-          <View style={{ flexDirection: 'row', gap: 24 }}>
-            {(['library', 'discover'] as const).map((tab) => (
-              <Pressable
-                key={tab}
-                onPress={() => setActiveTab(tab)}
-                style={{ paddingBottom: 8, borderBottomWidth: 1.5, borderBottomColor: activeTab === tab ? '#0A0A0A' : 'transparent' }}
-              >
-                <Text style={{
-                  fontFamily: activeTab === tab ? 'PlayfairDisplay_700Bold' : 'PlayfairDisplay_400Regular',
-                  fontSize: 13,
-                  color: activeTab === tab ? '#0A0A0A' : '#6B6B6B',
-                  textTransform: 'capitalize',
-                  letterSpacing: 0.3,
-                }}>
-                  {tab === 'library' ? 'My Library' : 'Discover'}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
+        <View style={{ paddingHorizontal: 20, paddingTop: 12, paddingBottom: 4 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            {TAB_LABELS.map(({ id, label }) => {
+              const active = activeTab === id;
+              return (
+                <Pressable
+                  key={id}
+                  onPress={() => setActiveTab(id)}
+                  style={{
+                    paddingHorizontal: 14,
+                    paddingVertical: 7,
+                    borderRadius: 20,
+                    backgroundColor: active ? '#0A0A0A' : 'transparent',
+                    borderWidth: 1,
+                    borderColor: active ? '#0A0A0A' : '#D4D4D4',
+                  }}
+                >
+                  <Text style={{
+                    fontFamily: active ? 'PlayfairDisplay_700Bold' : 'PlayfairDisplay_400Regular',
+                    fontSize: 12,
+                    color: active ? '#EDEDED' : '#6B6B6B',
+                    letterSpacing: 0.3,
+                  }}>
+                    {label}
+                  </Text>
+                </Pressable>
+              );
+            })}
 
-          {/* Trending indicator */}
-          {activeTab === 'discover' && !showingSearch && (
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-              {trendingLoading
-                ? <ActivityIndicator size="small" color="#ABABAB" />
-                : <TrendingUp size={12} color="#ABABAB" strokeWidth={1.5} />}
-              <Text style={{ fontSize: 10, color: '#ABABAB', letterSpacing: 0.3 }}>
-                {trendingLoading ? 'Loading…' : 'Trending this year'}
-              </Text>
+            {/* Right metadata */}
+            <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 4 }}>
+              {activeTab === 'discover' && (
+                trendingLoading
+                  ? <ActivityIndicator size="small" color="#ABABAB" />
+                  : <>
+                      <TrendingUp size={11} color="#ABABAB" strokeWidth={1.5} />
+                      <Text style={{ fontSize: 10, color: '#ABABAB', letterSpacing: 0.3 }}>This year</Text>
+                    </>
+              )}
+              {activeTab === 'foryou' && selectedInterests.length > 0 && (
+                <Text style={{ fontFamily: 'PlayfairDisplay_400Regular_Italic', fontSize: 10, color: '#ABABAB' }} numberOfLines={1}>
+                  {selectedInterests.slice(0, 2).join(' · ')}
+                </Text>
+              )}
+              {activeTab === 'library' && library.length > 0 && (
+                <Text style={{ fontFamily: 'PlayfairDisplay_400Regular_Italic', fontSize: 10, color: '#ABABAB' }}>
+                  {library.length} book{library.length !== 1 ? 's' : ''}
+                </Text>
+              )}
             </View>
-          )}
+          </View>
+        </View>
+      )}
+
+      {/* Library personal header strip */}
+      {activeTab === 'library' && !showingSearch && (
+        <View style={{ backgroundColor: '#0A0A0A', paddingHorizontal: 24, paddingVertical: 13 }}>
+          <Text style={{ fontFamily: 'PlayfairDisplay_700Bold', fontSize: 12, color: '#EDEDED', letterSpacing: 2, textTransform: 'uppercase' }}>
+            My Collection
+          </Text>
+          <Text style={{ fontFamily: 'PlayfairDisplay_400Regular_Italic', fontSize: 11, color: 'rgba(237,237,237,0.45)', marginTop: 2 }}>
+            {library.length === 0
+              ? 'No books saved yet'
+              : `${library.length} book${library.length !== 1 ? 's' : ''} · personally chosen`}
+          </Text>
         </View>
       )}
 
@@ -348,10 +528,13 @@ export default function BooksTab() {
         keyExtractor={(item) => item.id}
         numColumns={2}
         key="grid"
-        style={{ flex: 1 }}
+        style={{
+          flex: 1,
+          backgroundColor: activeTab === 'library' && !showingSearch ? '#FAFAF8' : 'transparent',
+        }}
         contentContainerStyle={{
           paddingHorizontal: CARD_H_PAD,
-          paddingTop: 12,
+          paddingTop: 14,
           paddingBottom: TAB_BAR_BOTTOM_OFFSET + insets.bottom,
           gap: CARD_GAP,
           flexGrow: 1,
@@ -359,7 +542,13 @@ export default function BooksTab() {
         columnWrapperStyle={{ gap: CARD_GAP }}
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={renderEmpty}
-        renderItem={({ item }) => <BookCard book={item} inLibrary={isInLibrary(item.id)} />}
+        renderItem={({ item }) => (
+          <BookCard
+            book={item}
+            inLibrary={isInLibrary(item.id)}
+            isLibraryView={activeTab === 'library' && !showingSearch}
+          />
+        )}
       />
     </SafeAreaView>
   );

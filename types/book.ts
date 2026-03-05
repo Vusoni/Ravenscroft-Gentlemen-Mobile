@@ -6,6 +6,7 @@ export interface Book {
   genre?: string;
   pageCount?: number;
   description?: string;
+  addedAt?: string;     // ISO string — set when book is saved to library
 }
 
 export interface NoteSet {

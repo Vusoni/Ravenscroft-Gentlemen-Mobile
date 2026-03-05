@@ -31,7 +31,8 @@ export const useBooksStore = create<BooksState>((set, get) => ({
   },
 
   addBook: async (book: Book) => {
-    const library = [...get().library, book];
+    const bookWithDate: Book = { ...book, addedAt: new Date().toISOString() };
+    const library = [...get().library, bookWithDate];
     set({ library });
     await AsyncStorage.setItem(LIBRARY_KEY, JSON.stringify(library));
   },

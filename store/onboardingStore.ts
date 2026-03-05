@@ -37,9 +37,13 @@ export const useOnboardingStore = create<OnboardingState>((set, get) => ({
   },
 
   checkOnboardingStatus: async () => {
-    const value = await AsyncStorage.getItem(ONBOARDING_KEY);
-    const complete = value === 'true';
-    set({ isOnboardingComplete: complete });
+    const [[, completeRaw], [, interestsRaw]] = await AsyncStorage.multiGet([
+      ONBOARDING_KEY,
+      INTERESTS_KEY,
+    ]);
+    const complete = completeRaw === 'true';
+    const selectedInterests: string[] = interestsRaw ? JSON.parse(interestsRaw) : [];
+    set({ isOnboardingComplete: complete, selectedInterests });
     return complete;
   },
 

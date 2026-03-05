@@ -1,6 +1,7 @@
 // app/(home)/book-notes.tsx — AI literary companion chat
 import { ChatMessage, useChatStore } from '@/store/chatStore';
 import { useNotesStore } from '@/store/notesStore';
+import { useOnboardingStore } from '@/store/onboardingStore';
 import { Book } from '@/types/book';
 import { router, useLocalSearchParams } from 'expo-router';
 import { ArrowLeft, Send, Trash2, X } from 'lucide-react-native';
@@ -25,10 +26,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-// ─── API key note ─────────────────────────────────────────────────────────────
-// IMPORTANT: EXPO_PUBLIC_ env vars are bundled into the app binary.
-// For production, proxy requests through a server-side edge function
-// that holds the API key securely.
+// ─── API config ───────────────────────────────────────────────────────────────
 const API_KEY = process.env.EXPO_PUBLIC_ANTHROPIC_API_KEY ?? '';
 const API_URL = 'https://api.anthropic.com/v1/messages';
 const MAX_CONTEXT_MESSAGES = 20;
@@ -37,6 +35,7 @@ async function askClaude(
   messages: ChatMessage[],
   book: Book,
   userNoteTexts: string[],
+  userInterests: string[],
   signal: AbortSignal,
 ): Promise<string> {
   const systemPrompt = [
@@ -44,6 +43,9 @@ async function askClaude(
     "Help the reader understand themes, reflect on what they've read, and connect ideas to their own life.",
     'Be concise, thoughtful, and conversational — like a well-read friend, not a professor.',
     'Keep responses to 2-4 paragraphs unless the question genuinely requires more depth.',
+    userInterests.length > 0
+      ? `\nThe reader's interests: ${userInterests.join(', ')}.`
+      : '',
     userNoteTexts.length > 0
       ? `\nThe reader's personal notes:\n${userNoteTexts.map((n) => `- ${n}`).join('\n')}`
       : '',
@@ -127,6 +129,19 @@ function MessageBubble({ message }: { message: ChatMessage }) {
   );
 }
 
+// ─── Suggested prompt chip ────────────────────────────────────────────────────
+function PromptChip({ label, onPress }: { label: string; onPress: () => void }) {
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [styles.promptChip, pressed && { opacity: 0.65 }]}
+      accessibilityRole="button"
+    >
+      <Text style={styles.promptChipText} numberOfLines={2}>{label}</Text>
+    </Pressable>
+  );
+}
+
 // ─── Main screen ─────────────────────────────────────────────────────────────
 export default function BookNotesScreen() {
   const params = useLocalSearchParams<{ book: string }>();
@@ -134,6 +149,7 @@ export default function BookNotesScreen() {
 
   const { hydrate: hydrateChat, addMessage, clearChat, getMessages } = useChatStore();
   const { hydrate: hydrateNotes, getNotesForBook } = useNotesStore();
+  const { selectedInterests, checkOnboardingStatus } = useOnboardingStore();
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputText, setInputText] = useState('');
@@ -152,6 +168,10 @@ export default function BookNotesScreen() {
     const init = async () => {
       await hydrateChat();
       await hydrateNotes();
+      // Ensure interests are loaded from storage
+      if (selectedInterests.length === 0) {
+        await checkOnboardingStatus();
+      }
 
       const history = getMessages(book.id);
       if (history.length === 0 && !initialised.current) {
@@ -170,9 +190,19 @@ export default function BookNotesScreen() {
     init();
   }, []);
 
-  const handleSend = async () => {
-    if (!inputText.trim() || isThinking) return;
-    const userText = inputText.trim();
+  // Suggested prompts — tailored to book + user interests
+  const suggestedPrompts = [
+    `What did you enjoy most about "${book.title}"?`,
+    `What are the key themes I should understand in this book?`,
+    selectedInterests.length > 0
+      ? `How can I apply the wisdom from this book given my interest in ${selectedInterests.slice(0, 2).join(' and ')}?`
+      : `How can I apply the wisdom from "${book.title}" in everyday life?`,
+    `Who would benefit most from reading "${book.title}"?`,
+  ];
+
+  const sendText = async (text: string) => {
+    if (!text.trim() || isThinking) return;
+    const userText = text.trim();
     setInputText('');
 
     const userMsg = await addMessage(book.id, { role: 'user', text: userText });
@@ -186,7 +216,7 @@ export default function BookNotesScreen() {
     try {
       const history = getMessages(book.id);
       const userNotes = getNotesForBook(book.id).map((n) => n.text);
-      const responseText = await askClaude(history, book, userNotes, controller.signal);
+      const responseText = await askClaude(history, book, userNotes, selectedInterests, controller.signal);
 
       const assistantMsg = await addMessage(book.id, { role: 'assistant', text: responseText });
       setMessages((prev) => [...prev, assistantMsg]);
@@ -203,6 +233,8 @@ export default function BookNotesScreen() {
       scrollToBottom();
     }
   };
+
+  const handleSend = () => sendText(inputText);
 
   const handleCancel = () => {
     abortControllerRef.current?.abort();
@@ -223,6 +255,7 @@ export default function BookNotesScreen() {
     ]);
   };
 
+  const showPromptChips = messages.length <= 1 && !isThinking;
   const hasMessages = messages.length > 1;
 
   return (
@@ -269,6 +302,26 @@ export default function BookNotesScreen() {
           </View>
         )}
       </ScrollView>
+
+      {/* Suggested prompts */}
+      {showPromptChips && (
+        <View style={styles.promptsWrapper}>
+          <Text style={styles.promptsLabel}>Suggested</Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.promptsScroll}
+          >
+            {suggestedPrompts.map((prompt, i) => (
+              <PromptChip
+                key={i}
+                label={prompt}
+                onPress={() => sendText(prompt)}
+              />
+            ))}
+          </ScrollView>
+        </View>
+      )}
 
       {/* Input bar */}
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
@@ -397,6 +450,43 @@ const styles = StyleSheet.create({
     borderRadius: 3.5,
     backgroundColor: '#6B6B6B',
   },
+  // Suggested prompts
+  promptsWrapper: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: '#D4D4D4',
+    paddingTop: 10,
+    paddingBottom: 6,
+    backgroundColor: '#EDEDED',
+  },
+  promptsLabel: {
+    fontFamily: 'PlayfairDisplay_400Regular',
+    fontSize: 10,
+    color: '#ABABAB',
+    letterSpacing: 1.5,
+    textTransform: 'uppercase',
+    paddingHorizontal: 16,
+    marginBottom: 8,
+  },
+  promptsScroll: {
+    paddingHorizontal: 12,
+    gap: 8,
+  },
+  promptChip: {
+    backgroundColor: '#F5F5F5',
+    borderWidth: 1,
+    borderColor: '#D4D4D4',
+    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    maxWidth: 220,
+  },
+  promptChipText: {
+    fontFamily: 'PlayfairDisplay_400Regular_Italic',
+    fontSize: 12,
+    color: '#1C1C1C',
+    lineHeight: 17,
+  },
+  // Input
   inputBar: {
     flexDirection: 'row',
     alignItems: 'flex-end',
