@@ -10,7 +10,7 @@ export default function TabsLayout() {
     >
       <Tabs.Screen name="index" />
       <Tabs.Screen name="books" />
-      <Tabs.Screen name="messages" />
+      <Tabs.Screen name="journal" />
       <Tabs.Screen name="assistant" />
       <Tabs.Screen name="profile" />
     </Tabs>

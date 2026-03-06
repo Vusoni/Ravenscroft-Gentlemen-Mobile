@@ -17,16 +17,86 @@ const GUIDE_SHOWN_KEY = 'ravenscroft_guide_shown';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
-const ARTICLE = {
-  id: 'art-makers',
-  category: 'ravenscroft · 01 Mar 2026 · 15 min',
-  title: 'ART MAKERS AND RULE BREAKERS FOR A LIBRARIAN MEN CULTURE SHOWCASE.',
-  summary: [
-    'AI has the potential to shift focus from productivity to creativity, prioritising original, meaningful, and authentic work over traditional metrics.',
-    'Productivity tools often hinder creativity by forcing standardisation, efficiency and predictability, lacking support for non-linear insight and idea generation.',
-    'Creative tools should enhance the collection, connection, and creation of ideas, seamlessly supporting both passive foraging and active hunting modes of information discovery.',
-  ],
-};
+const ARTICLES = [
+  {
+    id: 'discipline-of-morning',
+    category: 'Stoicism',
+    date: '06 Mar 2026',
+    readTime: '8 min',
+    title: 'THE DISCIPLINE OF MORNING: HOW GREAT MEN BEGIN THEIR DAY.',
+    excerpt: 'The Stoics were not simply philosophers. They were practitioners. Marcus Aurelius rose before dawn not because he wanted to, but because he chose to — and in that distinction lies everything.',
+    summary: [
+      'Morning rituals are a form of philosophical practice, not mere productivity optimisation.',
+      'Intentional early rising creates a window of uncontested solitude that primes the mind for clarity.',
+      'The quality of a day is largely determined before the first obligation begins.',
+    ],
+  },
+  {
+    id: 'art-makers',
+    category: 'Culture',
+    date: '01 Mar 2026',
+    readTime: '15 min',
+    title: 'ART MAKERS AND RULE BREAKERS FOR A LIBRARIAN MEN CULTURE SHOWCASE.',
+    excerpt: "We're like, if a bunch of Art students opened a Swiss Design Studio in the back of a Skate Shop. It's a collision of worlds; a dance of contrasts — a harmonious disarray.",
+    summary: [
+      'AI has the potential to shift focus from productivity to creativity, prioritising original, meaningful, and authentic work.',
+      'Productivity tools often hinder creativity by forcing standardisation, efficiency and predictability.',
+      'Creative tools should enhance the collection, connection, and creation of ideas.',
+    ],
+  },
+  {
+    id: 'virtue-of-silence',
+    category: 'Philosophy',
+    date: '25 Feb 2026',
+    readTime: '6 min',
+    title: 'ON THE VIRTUE OF SILENCE IN A WORLD THAT REWARDS NOISE.',
+    excerpt: 'In antiquity, silence was considered a mark of wisdom. Today we mistake verbosity for intelligence, and volume for confidence. The gentleman reacquaints himself with restraint.',
+    summary: [
+      'Silence is not passivity — it is active, disciplined attention to what is actually worth saying.',
+      'The compulsive need to fill space with words signals insecurity, not authority.',
+      'Strategic reticence commands more respect than constant commentary.',
+    ],
+  },
+  {
+    id: 'well-dressed-mind',
+    category: 'Style',
+    date: '20 Feb 2026',
+    readTime: '10 min',
+    title: 'THE WELL-DRESSED MIND: ON BOOKS, TAILORING, AND THE ART OF BEING.',
+    excerpt: 'Dress is character made visible. But what of the interior? The man who attends to his wardrobe yet neglects his library presents a curious contradiction — appearance without substance.',
+    summary: [
+      'Personal style and intellectual cultivation are not separate pursuits — they are expressions of a single integrated identity.',
+      'The gentleman understands that how he presents himself in dress and in thought are equally deliberate choices.',
+      'Neglecting one domain while perfecting the other produces an imbalance others intuitively sense.',
+    ],
+  },
+  {
+    id: 'marcus-aurelius-2026',
+    category: 'Literature',
+    date: '14 Feb 2026',
+    readTime: '12 min',
+    title: 'READING MARCUS AURELIUS IN 2026: WHAT THE EMPEROR STILL TEACHES US.',
+    excerpt: "The Meditations were never meant to be published. They were private reminders from a man who held the fate of an empire — and still worried he wasn't doing enough. That honesty is what makes them timeless.",
+    summary: [
+      'The Meditations offer a rare document of a powerful man holding himself accountable to his own values.',
+      "Aurelius's recurring themes — impermanence, virtue, reason — are as urgent now as they were in 170 AD.",
+      'Reading the Stoics is not historical study. It is applied philosophy for daily life.',
+    ],
+  },
+  {
+    id: 'london-patience',
+    category: 'Travel',
+    date: '08 Feb 2026',
+    readTime: '9 min',
+    title: 'WHAT LONDON TAUGHT ME ABOUT PATIENCE, CRAFT, AND MEASURED AMBITION.',
+    excerpt: 'London does not rush. The city has weathered centuries with a particular brand of unhurried confidence that the frenetic capitals of the new world have yet to cultivate.',
+    summary: [
+      'Cities carry philosophies — London embodies restraint, continuity, and earned authority.',
+      'Patience is not inaction. It is the willingness to let quality compound over time rather than chase immediate recognition.',
+      'The gentleman studies places as he studies books — for what they reveal about the longer arc of civilisation.',
+    ],
+  },
+];
 
 function PressCard({ onPress, children }: { onPress: () => void; children: ReactNode }) {
   const scale = useSharedValue(1);
@@ -208,12 +278,15 @@ export default function ArticlesTab() {
     router.push('/(home)/app-guide');
   };
 
+  const featured = ARTICLES[0];
+  const editorialArticles = ARTICLES.slice(1);
+
   const handleGenerateSummary = () => {
-    console.log('[Ravenscroft] Generate Summary tapped for:', ARTICLE.title);
+    console.log('[Ravenscroft] Generate Summary tapped for:', featured.title);
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#EDEDED' }} edges={['top']}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#FFFFFF' }} edges={['top']}>
       <WelcomeModal
         visible={showWelcome}
         onOpenGuide={openGuide}
@@ -246,26 +319,26 @@ export default function ArticlesTab() {
           </View>
         </View>
 
-        {/* Feed card — dark */}
+        {/* Featured card — dark */}
         <View style={articleStyles.feedCard}>
-          {/* Image placeholder */}
           <View style={articleStyles.feedImageArea}>
-            {/* Subtle glass shimmer at top of image */}
             <View style={articleStyles.feedImageShimmer} />
-            <Text style={articleStyles.feedImageLabel}>Image</Text>
+            <Text style={articleStyles.feedCategoryBadge}>{featured.category}</Text>
           </View>
 
-          {/* Card body */}
           <View style={articleStyles.feedBody}>
-            <Text style={articleStyles.feedCategory}>
-              {ARTICLE.category}
+            <Text style={articleStyles.feedMeta}>
+              ravenscroft · {featured.date} · {featured.readTime}
             </Text>
 
             <Text style={articleStyles.feedTitle}>
-              {ARTICLE.title}
+              {featured.title}
             </Text>
 
-            {/* Glass "Generate Summary" pill */}
+            <Text style={articleStyles.feedExcerpt} numberOfLines={2}>
+              {featured.excerpt}
+            </Text>
+
             <Pressable
               onPress={handleGenerateSummary}
               style={articleStyles.summaryBtnWrapper}
@@ -274,11 +347,7 @@ export default function ArticlesTab() {
             >
               <View style={articleStyles.summaryBtn}>
                 {Platform.OS === 'ios' && (
-                  <BlurView
-                    intensity={20}
-                    tint="dark"
-                    style={StyleSheet.absoluteFill}
-                  />
+                  <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFill} />
                 )}
                 <View style={[StyleSheet.absoluteFill, articleStyles.summaryBtnFill]} pointerEvents="none" />
                 <Text style={articleStyles.summaryBtnLabel}>Generate Summary</Text>
@@ -288,55 +357,33 @@ export default function ArticlesTab() {
           </View>
         </View>
 
-        {/* Article preview card — glass surface */}
-        <PressCard onPress={() => router.push('/(home)/article')}>
-          <View style={articleStyles.previewCard}>
-            {Platform.OS === 'ios' && (
-              <BlurView
-                intensity={52}
-                tint="systemChromeMaterialLight"
-                style={[StyleSheet.absoluteFill, { borderRadius: 20 }]}
-              />
-            )}
-            {/* Glass fill */}
-            <View style={[StyleSheet.absoluteFill, articleStyles.previewCardFill]} pointerEvents="none" />
-            {/* Dark hairline depth */}
-            <View style={[StyleSheet.absoluteFill, articleStyles.previewCardHairline]} pointerEvents="none" />
+        {/* Editorial section */}
+        <View style={articleStyles.sectionHeader}>
+          <Text style={articleStyles.sectionLabel}>Editorial</Text>
+          <View style={articleStyles.sectionDivider} />
+        </View>
 
-            {/* Nav bar */}
-            <View style={articleStyles.previewNav}>
-              <Text style={articleStyles.previewNavLabel}>← Back To Home</Text>
-            </View>
-
-            {/* Article header */}
-            <View style={articleStyles.previewHeader}>
-              <Text style={articleStyles.previewTitle}>
-                The Art Activities and Interests
-              </Text>
-              <Text style={articleStyles.previewMeta}>ravenscroft · 01 Mar 2026 · 15 min</Text>
-            </View>
-
-            {/* Body excerpt */}
-            <View style={articleStyles.previewBody}>
-              <Text style={articleStyles.previewExcerpt} numberOfLines={5}>
-                We're like, if a bunch of Art students opened a Swiss Design Studio in the back of a
-                Skate Shop. It's a collision of worlds; a dance of contrasts — a harmonious disarray.
-                For our clients and partners, it means a journey of leveraging seemingly disparate
-                elements to craft compelling and lasting narratives.
-              </Text>
-
-              <View style={articleStyles.previewSummaryBlock}>
-                <Text style={articleStyles.previewSummaryLabel}>Summary</Text>
-                {ARTICLE.summary.map((point, i) => (
-                  <View key={i} style={articleStyles.previewSummaryRow}>
-                    <Text style={articleStyles.previewBullet}>•</Text>
-                    <Text style={articleStyles.previewSummaryText}>{point}</Text>
-                  </View>
-                ))}
+        <View style={articleStyles.articleList}>
+          {editorialArticles.map((article, index) => (
+            <PressCard key={article.id} onPress={() => router.push('/(home)/article')}>
+              <View style={[
+                articleStyles.articleRow,
+                index === editorialArticles.length - 1 && articleStyles.articleRowLast,
+              ]}>
+                <View style={articleStyles.articleRowContent}>
+                  <Text style={articleStyles.articleRowCategory}>{article.category}</Text>
+                  <Text style={articleStyles.articleRowTitle} numberOfLines={2}>
+                    {article.title}
+                  </Text>
+                  <Text style={articleStyles.articleRowMeta}>
+                    {article.date} · {article.readTime}
+                  </Text>
+                </View>
+                <View style={articleStyles.articleRowThumb} />
               </View>
-            </View>
-          </View>
-        </PressCard>
+            </PressCard>
+          ))}
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -408,11 +455,12 @@ const articleStyles = StyleSheet.create({
     }),
   },
   feedImageArea: {
-    height: 192,
-    backgroundColor: 'rgba(28,28,28,0.85)',
-    justifyContent: 'flex-end',
-    alignItems: 'flex-end',
+    height: 180,
+    backgroundColor: 'rgba(28,28,28,0.9)',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
     padding: 16,
+    flexDirection: 'column',
   },
   feedImageShimmer: {
     position: 'absolute',
@@ -422,31 +470,36 @@ const articleStyles = StyleSheet.create({
     height: 60,
     backgroundColor: 'rgba(255,255,255,0.04)',
   },
-  feedImageLabel: {
-    fontFamily: 'PlayfairDisplay_400Regular_Italic',
-    fontSize: 10,
-    color: 'rgba(237,237,237,0.3)',
-    letterSpacing: 2,
+  feedCategoryBadge: {
+    fontSize: 9,
+    color: 'rgba(237,237,237,0.5)',
+    letterSpacing: 2.5,
     textTransform: 'uppercase',
+    marginTop: 'auto',
   },
   feedBody: {
     padding: 20,
-    gap: 16,
+    gap: 10,
   },
-  feedCategory: {
+  feedMeta: {
     fontSize: 10,
-    color: 'rgba(237,237,237,0.5)',
-    letterSpacing: 2,
-    textTransform: 'uppercase',
+    color: 'rgba(237,237,237,0.4)',
+    letterSpacing: 0.3,
   },
   feedTitle: {
     fontFamily: 'PlayfairDisplay_700Bold',
-    fontSize: 20,
+    fontSize: 19,
     color: '#EDEDED',
     lineHeight: 26,
   },
+  feedExcerpt: {
+    fontSize: 12,
+    color: 'rgba(237,237,237,0.55)',
+    lineHeight: 18,
+  },
   summaryBtnWrapper: {
     alignSelf: 'flex-start',
+    marginTop: 6,
   },
   summaryBtn: {
     overflow: 'hidden',
@@ -473,99 +526,74 @@ const articleStyles = StyleSheet.create({
     color: '#EDEDED',
     letterSpacing: 0.4,
   },
-  // Glass article preview card
-  previewCard: {
-    marginHorizontal: 24,
-    borderRadius: 20,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.88)',
-    backgroundColor: Platform.select({
-      ios: 'transparent',
-      android: 'rgba(255,255,255,0.76)',
-    }),
-    ...Platform.select({
-      ios: {
-        shadowColor: '#1C1C1C',
-        shadowOffset: { width: 0, height: 6 },
-        shadowOpacity: 0.09,
-        shadowRadius: 18,
-      },
-      android: { elevation: 8 },
-    }),
+  // Editorial section
+  sectionHeader: {
+    paddingHorizontal: 24,
+    marginTop: 28,
+    marginBottom: 4,
+    gap: 10,
   },
-  previewCardFill: {
-    backgroundColor: 'rgba(255,255,255,0.72)',
-    borderRadius: 20,
+  sectionLabel: {
+    fontFamily: 'PlayfairDisplay_400Regular_Italic',
+    fontSize: 12,
+    color: '#6B6B6B',
+    letterSpacing: 0.5,
   },
-  previewCardHairline: {
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.05)',
+  sectionDivider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: 'rgba(0,0,0,0.1)',
   },
-  previewNav: {
+  articleList: {
+    marginHorizontal: 16,
+    marginTop: 6,
+    gap: 8,
+  },
+  articleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(0,0,0,0.08)',
+    gap: 14,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.07)',
+    padding: 14,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.04,
+        shadowRadius: 6,
+      },
+      android: { elevation: 1 },
+    }),
   },
-  previewNavLabel: {
-    fontSize: 12,
-    color: '#6B6B6B',
-  },
-  previewHeader: {
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 12,
-  },
-  previewTitle: {
-    fontFamily: 'PlayfairDisplay_700Bold',
-    fontSize: 16,
-    color: '#0A0A0A',
-    lineHeight: 24,
-    marginBottom: 4,
-  },
-  previewMeta: {
-    fontSize: 10,
-    color: '#6B6B6B',
-  },
-  previewBody: {
-    paddingHorizontal: 20,
-    paddingBottom: 16,
-  },
-  previewExcerpt: {
-    fontSize: 12,
-    color: '#1C1C1C',
-    lineHeight: 18,
-    marginBottom: 16,
-  },
-  previewSummaryBlock: {
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: 'rgba(0,0,0,0.08)',
-    paddingTop: 12,
-  },
-  previewSummaryLabel: {
-    fontFamily: 'PlayfairDisplay_700Bold',
-    fontSize: 12,
-    color: '#0A0A0A',
-    marginBottom: 8,
-  },
-  previewSummaryRow: {
-    flexDirection: 'row',
-    gap: 8,
-    marginBottom: 6,
-  },
-  previewBullet: {
-    fontSize: 10,
-    color: '#6B6B6B',
-    marginTop: 1,
-  },
-  previewSummaryText: {
-    fontSize: 10,
-    color: '#1C1C1C',
-    lineHeight: 16,
+  articleRowLast: {},
+  articleRowContent: {
     flex: 1,
+    gap: 5,
+  },
+  articleRowCategory: {
+    fontSize: 9,
+    color: '#6B6B6B',
+    letterSpacing: 2,
+    textTransform: 'uppercase',
+  },
+  articleRowTitle: {
+    fontFamily: 'PlayfairDisplay_700Bold',
+    fontSize: 14,
+    color: '#0A0A0A',
+    lineHeight: 20,
+  },
+  articleRowMeta: {
+    fontSize: 10,
+    color: '#6B6B6B',
+    marginTop: 2,
+  },
+  articleRowThumb: {
+    width: 54,
+    height: 54,
+    borderRadius: 10,
+    backgroundColor: '#F0EFED',
+    flexShrink: 0,
   },
 });

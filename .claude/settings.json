@@ -29,7 +29,8 @@
       "Bash(npx expo install expo-blur)",
       "Bash(npx expo-doctor@latest)",
       "WebFetch(domain:github.com)",
-      "WebFetch(domain:developers.notion.com)"
+      "WebFetch(domain:developers.notion.com)",
+      "Bash(find \"/Users/oliwierkraszewski/Documents/01 Projects/Gentlemen-App/app/\\(home\\)/\\(tabs\\)\" -type f -name \"*.tsx\")"
     ],
     "additionalDirectories": [
       "/Users/oliwierkraszewski/Documents/01 Projects/Gentlemen-App/assets/elegant-images"

@@ -11,6 +11,8 @@ export default function HomeLayout() {
       <Stack.Screen name="book-notes" options={{ animation: 'slide_from_right' }} />
       <Stack.Screen name="book-reader" options={{ animation: 'slide_from_right' }} />
       <Stack.Screen name="app-guide" options={{ animation: 'slide_from_bottom' }} />
+      <Stack.Screen name="journal-entry" options={{ animation: 'slide_from_bottom' }} />
+      <Stack.Screen name="journal-detail" options={{ animation: 'slide_from_right' }} />
     </Stack>
   );
 }

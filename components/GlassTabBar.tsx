@@ -4,8 +4,8 @@ import { BlurView } from "expo-blur";
 import * as Haptics from "expo-haptics";
 import {
   BookOpen,
-  MessageSquare,
   Newspaper,
+  NotebookPen,
   Sparkles,
   User,
 } from "lucide-react-native";
@@ -31,7 +31,7 @@ type LucideIcon = typeof BookOpen;
 const TAB_CONFIG: Record<string, { icon: LucideIcon; label: string }> = {
   index: { icon: Newspaper, label: "Articles" },
   books: { icon: BookOpen, label: "Books" },
-  messages: { icon: MessageSquare, label: "Messages" },
+  journal: { icon: NotebookPen, label: "Journal" },
   assistant: { icon: Sparkles, label: "Assistant" },
   profile: { icon: User, label: "Profile" },
 };
