@@ -13,6 +13,8 @@ export default function HomeLayout() {
       <Stack.Screen name="app-guide" options={{ animation: 'slide_from_bottom' }} />
       <Stack.Screen name="journal-entry" options={{ animation: 'slide_from_bottom' }} />
       <Stack.Screen name="journal-detail" options={{ animation: 'slide_from_right' }} />
+      <Stack.Screen name="appearance-setup" options={{ animation: 'slide_from_right' }} />
+      <Stack.Screen name="wardrobe" options={{ animation: 'slide_from_right' }} />
     </Stack>
   );
 }

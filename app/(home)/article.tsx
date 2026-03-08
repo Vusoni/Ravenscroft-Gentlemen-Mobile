@@ -1,82 +1,63 @@
-// app/(home)/article.tsx
-import { router } from 'expo-router';
+// app/(home)/article.tsx — Article detail
+import { ARTICLES } from '@/constants/articles';
+import { router, useLocalSearchParams } from 'expo-router';
 import { ArrowLeft } from 'lucide-react-native';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-const SUMMARY_POINTS = [
-  'AI has the potential to shift focus from productivity to creativity, prioritising original, meaningful, and authentic work over traditional metrics.',
-  'Productivity tools often hinder creativity by forcing standardisation, efficiency and predictability, lacking support for non-linear insight and idea generation.',
-  'Creative tools should enhance the collection, connection, and creation of ideas, seamlessly supporting both passive foraging and active hunting modes of information discovery.',
-];
-
 export default function ArticleScreen() {
+  const { id } = useLocalSearchParams<{ id: string }>();
+  const article = ARTICLES.find((a) => a.id === id) ?? ARTICLES[0];
+
   return (
-    <SafeAreaView className="flex-1 bg-white" edges={['top', 'bottom']}>
-      {/* Nav */}
-      <View className="flex-row items-center px-5 py-3 border-b border-border">
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+      {/* ── Nav ────────────────────────────────── */}
+      <View style={styles.nav}>
         <Pressable
           onPress={() => router.back()}
-          className="flex-row items-center gap-2"
+          style={styles.navBack}
+          hitSlop={12}
           accessibilityRole="button"
-          accessibilityLabel="Back to home"
+          accessibilityLabel="Back"
         >
-          <ArrowLeft size={16} color="#6B6B6B" />
-          <Text className="text-muted text-sm">Back To Home</Text>
+          <ArrowLeft size={16} color="#6B6B6B" strokeWidth={1.5} />
+          <Text style={styles.navBackLabel}>Articles</Text>
         </Pressable>
+        <View style={styles.categoryPill}>
+          <Text style={styles.categoryPillText}>{article.category}</Text>
+        </View>
       </View>
 
       <ScrollView
-        className="flex-1"
-        contentContainerStyle={{ padding: 24, paddingBottom: 48 }}
+        style={styles.flex}
+        contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Title */}
-        <Text
-          className="text-ink text-2xl leading-8 mb-2"
-          style={{ fontFamily: 'PlayfairDisplay_700Bold' }}
-        >
-          The Art Activities and Interests
+        {/* ── Meta ───────────────────────────────── */}
+        <Text style={styles.meta}>
+          ravenscroft · {article.date} · {article.readTime}
         </Text>
 
-        {/* Why intelligence…*/}
-        <Text
-          className="text-muted text-sm mb-1"
-          style={{ fontFamily: 'PlayfairDisplay_400Regular_Italic' }}
-        >
-          Why intelligence and art matter in modes world.
-        </Text>
+        {/* ── Title ──────────────────────────────── */}
+        <Text style={styles.title}>{article.title}</Text>
 
-        <Text className="text-muted text-[11px] mb-6">ravenscroft · 01 Mar 2026 · 15 min</Text>
+        {/* ── Divider ────────────────────────────── */}
+        <View style={styles.divider} />
 
-        {/* Body */}
-        <Text className="text-charcoal text-sm leading-5 mb-4">
-          We're like, if a bunch of Art students opened a Swiss Design Studio in the back of a
-          Skate Shop. It's a collision of worlds; a dance of contrasts — a harmonious disarray,
-          if you will. For our clients and partners, it means a journey of leveraging seemingly
-          disparate elements to craft compelling and lasting narratives. After all, every
-          great design tells a story worth living.
-        </Text>
-
-        <Text className="text-charcoal text-sm leading-5 mb-6">
-          The modern gentleman understands that culture is not a passive inheritance — it is an
-          active discipline. To engage with art is to sharpen perception, expand empathy, and
-          cultivate the kind of refined judgment that elevates every decision.
-        </Text>
-
-        {/* Summary section */}
-        <View className="border-t border-border pt-5">
-          <Text
-            className="text-ink text-base mb-4"
-            style={{ fontFamily: 'PlayfairDisplay_700Bold' }}
-          >
-            Summary
+        {/* ── Body ───────────────────────────────── */}
+        {article.body.map((paragraph, i) => (
+          <Text key={i} style={[styles.body, i < article.body.length - 1 && styles.bodySpacing]}>
+            {paragraph}
           </Text>
+        ))}
 
-          {SUMMARY_POINTS.map((point, i) => (
-            <View key={i} className="flex-row gap-3 mb-4">
-              <View className="w-1 h-1 rounded-full bg-ink mt-2 shrink-0" />
-              <Text className="text-charcoal text-sm leading-5 flex-1">{point}</Text>
+        {/* ── Summary ────────────────────────────── */}
+        <View style={styles.summarySection}>
+          <Text style={styles.summaryTitle}>Summary</Text>
+          {article.summary.map((point, i) => (
+            <View key={i} style={styles.summaryRow}>
+              <View style={styles.summaryDot} />
+              <Text style={styles.summaryText}>{point}</Text>
             </View>
           ))}
         </View>
@@ -84,3 +65,102 @@ export default function ArticleScreen() {
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: '#FFFFFF' },
+  flex: { flex: 1 },
+
+  nav: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(0,0,0,0.07)',
+  },
+  navBack: { flexDirection: 'row', alignItems: 'center', gap: 7 },
+  navBackLabel: {
+    fontFamily: 'PlayfairDisplay_400Regular',
+    fontSize: 14,
+    color: '#6B6B6B',
+  },
+  categoryPill: {
+    backgroundColor: '#F5F5F5',
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+  },
+  categoryPillText: {
+    fontFamily: 'PlayfairDisplay_400Regular',
+    fontSize: 10,
+    color: '#6B6B6B',
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
+  },
+
+  scrollContent: { padding: 24, paddingBottom: 56 },
+
+  meta: {
+    fontFamily: 'PlayfairDisplay_400Regular',
+    fontSize: 11,
+    color: '#ABABAB',
+    letterSpacing: 0.3,
+    marginBottom: 12,
+  },
+  title: {
+    fontFamily: 'PlayfairDisplay_700Bold',
+    fontSize: 24,
+    color: '#0A0A0A',
+    lineHeight: 32,
+    marginBottom: 20,
+  },
+  divider: {
+    width: 28,
+    height: 1.5,
+    backgroundColor: '#0A0A0A',
+    marginBottom: 24,
+  },
+  body: {
+    fontFamily: 'PlayfairDisplay_400Regular',
+    fontSize: 15,
+    color: '#1C1C1C',
+    lineHeight: 27,
+  },
+  bodySpacing: { marginBottom: 18 },
+
+  summarySection: {
+    marginTop: 32,
+    padding: 20,
+    borderRadius: 20,
+    backgroundColor: '#F5F5F5',
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.05)',
+  },
+  summaryTitle: {
+    fontFamily: 'PlayfairDisplay_700Bold',
+    fontSize: 16,
+    color: '#0A0A0A',
+    marginBottom: 16,
+  },
+  summaryRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 14,
+  },
+  summaryDot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#0A0A0A',
+    marginTop: 8,
+    flexShrink: 0,
+  },
+  summaryText: {
+    fontFamily: 'PlayfairDisplay_400Regular',
+    fontSize: 14,
+    color: '#1C1C1C',
+    lineHeight: 22,
+    flex: 1,
+  },
+});

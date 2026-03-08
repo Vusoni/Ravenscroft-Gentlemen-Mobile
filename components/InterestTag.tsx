@@ -2,7 +2,6 @@
 import { Check } from 'lucide-react-native';
 import { Pressable, Text } from 'react-native';
 import Animated, {
-  runOnJS,
   useAnimatedStyle,
   useSharedValue,
   withSpring,

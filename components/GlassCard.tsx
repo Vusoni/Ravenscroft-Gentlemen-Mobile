@@ -18,7 +18,7 @@ interface GlassCardProps {
 export function GlassCard({
   children,
   intensity = 52,
-  borderRadius = 18,
+  borderRadius = 22,
   style,
   fillColor = 'rgba(255,255,255,0.62)',
   noShadow = false,
@@ -88,8 +88,8 @@ const styles = StyleSheet.create({
       ios: {
         shadowColor: '#1C1C1C',
         shadowOffset: { width: 0, height: 6 },
-        shadowOpacity: 0.09,
-        shadowRadius: 20,
+        shadowOpacity: 0.12,
+        shadowRadius: 24,
       },
       android: {
         elevation: 8,

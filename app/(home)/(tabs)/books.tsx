@@ -75,7 +75,7 @@ const INTEREST_QUERIES: Record<string, string> = {
 
 // ─── Open Library trending API ────────────────────────────────────────────────
 type OLWork = {
-  key: string;
+  key?: string;
   title: string;
   author_name?: string[];
   cover_i?: number;
@@ -92,9 +92,9 @@ async function fetchTrendingBooks(): Promise<Book[]> {
   const data = await res.json();
   const works: OLWork[] = data.works ?? [];
   return works
-    .filter((w) => w.cover_i)
+    .filter((w) => w.cover_i && w.key)
     .map((w) => ({
-      id: w.key.replace('/works/', ''),
+      id: w.key!.replace('/works/', ''),
       title: w.title,
       author: w.author_name?.[0] ?? 'Unknown',
       coverUrl: `https://covers.openlibrary.org/b/id/${w.cover_i}-L.jpg`,
@@ -103,53 +103,30 @@ async function fetchTrendingBooks(): Promise<Book[]> {
     }));
 }
 
-// ─── Google Books API ─────────────────────────────────────────────────────────
-function fetchWithTimeout(url: string, ms = 5000): Promise<Response> {
-  return Promise.race([
-    fetch(url),
-    new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error('timeout')), ms),
-    ),
-  ]);
-}
-
-type GBItem = {
-  id: string;
-  volumeInfo: {
-    title: string;
-    authors?: string[];
-    imageLinks?: { smallThumbnail?: string; thumbnail?: string };
-    pageCount?: number;
-    categories?: string[];
-    description?: string;
-  };
-};
-
-const httpsUrl = (url?: string) =>
-  url ? url.replace('http://', 'https://') : undefined;
-
-async function searchGoogleBooks(query: string): Promise<Book[]> {
-  const url =
-    `https://www.googleapis.com/books/v1/volumes` +
-    `?q=${encodeURIComponent(query)}&maxResults=20` +
-    `&fields=items(id,volumeInfo(title,authors,imageLinks,pageCount,categories,description))`;
-  const res = await fetchWithTimeout(url);
+// ─── Open Library search (same API as trending — no key needed) ───────────────
+async function searchOpenLibrary(query: string): Promise<Book[]> {
+  const res = await fetch(
+    `https://openlibrary.org/search.json?q=${encodeURIComponent(query)}&limit=20`,
+    { signal: AbortSignal.timeout(8000) },
+  );
+  if (!res.ok) throw new Error(`OL ${res.status}`);
   const data = await res.json();
-  const items: GBItem[] = data.items ?? [];
-  return items.map((item) => ({
-    id: item.id,
-    title: item.volumeInfo.title ?? 'Untitled',
-    author: item.volumeInfo.authors?.[0] ?? 'Unknown',
-    coverUrl: httpsUrl(item.volumeInfo.imageLinks?.thumbnail ?? item.volumeInfo.imageLinks?.smallThumbnail),
-    pageCount: item.volumeInfo.pageCount,
-    genre: item.volumeInfo.categories?.[0],
-    description: item.volumeInfo.description,
-  }));
+  const docs: OLWork[] = data.docs ?? [];
+  return docs
+    .filter((d) => d.cover_i && d.title)
+    .map((d) => ({
+      id: d.key!.replace('/works/', ''),
+      title: d.title,
+      author: d.author_name?.[0] ?? 'Unknown',
+      coverUrl: `https://covers.openlibrary.org/b/id/${d.cover_i}-L.jpg`,
+      pageCount: d.number_of_pages_median,
+      genre: d.subject?.[0],
+    }));
 }
 
 async function fetchForYouBooks(interests: string[]): Promise<Book[]> {
   const queries = interests.slice(0, 4).map((i) => INTEREST_QUERIES[i]).filter(Boolean);
-  const results = await Promise.allSettled(queries.map((q) => searchGoogleBooks(q)));
+  const results = await Promise.allSettled(queries.map((q) => searchOpenLibrary(q)));
   const seen = new Set<string>();
   const books: Book[] = [];
   for (const result of results) {
@@ -235,7 +212,7 @@ function BookCard({
       accessibilityLabel={`${book.title} by ${book.author}`}
     >
       {/* Cover */}
-      <View style={{ width: CARD_W, height: coverH, borderRadius: 10, overflow: 'hidden', backgroundColor: coverColor(book.id) }}>
+      <View style={{ width: CARD_W, height: coverH, borderRadius: 14, overflow: 'hidden', backgroundColor: coverColor(book.id) }}>
         {book.coverUrl ? (
           <Image source={{ uri: book.coverUrl }} style={{ width: CARD_W, height: coverH }} resizeMode="cover" />
         ) : (
@@ -296,6 +273,7 @@ export default function BooksTab() {
   const [query, setQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Book[]>([]);
   const [searching, setSearching] = useState(false);
+  const [searchError, setSearchError] = useState(false);
 
   const [trendingBooks, setTrendingBooks] = useState<Book[]>(CURATED_FALLBACK);
   const [trendingLoading, setTrendingLoading] = useState(true);
@@ -339,20 +317,23 @@ export default function BooksTab() {
     const open = !searchOpen;
     setSearchOpen(open);
     searchH.value = withTiming(open ? 52 : 0, { duration: 220 });
-    if (!open) { setQuery(''); setSearchResults([]); }
+    if (!open) { setQuery(''); setSearchResults([]); setSearchError(false); }
   };
 
   const handleQueryChange = (text: string) => {
     setQuery(text);
+    setSearchError(false);
     if (debounceRef.current) clearTimeout(debounceRef.current);
     if (!text.trim()) { setSearchResults([]); return; }
     debounceRef.current = setTimeout(async () => {
       setSearching(true);
+      setSearchError(false);
       try {
-        const results = await searchGoogleBooks(text);
+        const results = await searchOpenLibrary(text);
         setSearchResults(results);
       } catch {
         setSearchResults([]);
+        setSearchError(true);
       } finally {
         setSearching(false);
       }
@@ -371,6 +352,18 @@ export default function BooksTab() {
   const renderEmpty = () => {
     if (showingSearch && searching) return null;
     if (showingSearch) {
+      if (searchError) {
+        return (
+          <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 60, paddingHorizontal: 32 }}>
+            <Text style={{ fontFamily: 'PlayfairDisplay_700Bold', fontSize: 16, color: '#0A0A0A', textAlign: 'center', marginBottom: 6 }}>
+              Search Unavailable
+            </Text>
+            <Text style={{ fontFamily: 'PlayfairDisplay_400Regular_Italic', fontSize: 13, color: '#6B6B6B', textAlign: 'center', lineHeight: 20 }}>
+              Unable to reach the books catalogue. Check your connection and try again.
+            </Text>
+          </View>
+        );
+      }
       return (
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 60 }}>
           <Text style={{ fontFamily: 'PlayfairDisplay_400Regular_Italic', fontSize: 14, color: '#6B6B6B' }}>No results found.</Text>
@@ -385,7 +378,7 @@ export default function BooksTab() {
             Begin Your Collection
           </Text>
           <Text style={{ fontFamily: 'PlayfairDisplay_400Regular_Italic', fontSize: 13, color: '#6B6B6B', textAlign: 'center', lineHeight: 20 }}>
-            A gentleman's library is the mirror of his mind. Discover a book and save it here.
+            A gentleman&apos;s library is the mirror of his mind. Discover a book and save it here.
           </Text>
         </View>
       );
@@ -455,66 +448,64 @@ export default function BooksTab() {
               style={{ flex: 1, marginLeft: 8, fontFamily: 'PlayfairDisplay_400Regular', fontSize: 14, color: '#0A0A0A' }}
               autoCapitalize="none"
               autoCorrect={false}
+              autoFocus
+              returnKeyType="search"
             />
             {searching && <SearchDots />}
           </View>
         </View>
       </Animated.View>
 
-      {/* Tabs + metadata row */}
+      {/* Tabs — unified glassmorphic segmented control */}
       {!showingSearch && (
-        <View style={{ paddingHorizontal: 20, paddingTop: 12, paddingBottom: 4 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+        <View style={{ paddingHorizontal: 20, paddingTop: 12, paddingBottom: 8 }}>
+          <View style={booksStyles.segmentContainer}>
+            {Platform.OS === 'ios' && (
+              <BlurView intensity={56} tint="systemUltraThinMaterialLight" style={StyleSheet.absoluteFill} />
+            )}
+            <View style={[StyleSheet.absoluteFill, booksStyles.segmentFill]} pointerEvents="none" />
             {TAB_LABELS.map(({ id, label }) => {
               const active = activeTab === id;
               return (
                 <Pressable
                   key={id}
                   onPress={() => setActiveTab(id)}
-                  style={[
-                    booksStyles.subTabPill,
-                    active ? booksStyles.subTabPillActive : booksStyles.subTabPillInactive,
-                  ]}
+                  style={booksStyles.segmentItem}
                 >
-                  {!active && Platform.OS === 'ios' && (
-                    <BlurView intensity={44} tint="systemChromeMaterialLight" style={StyleSheet.absoluteFill} />
-                  )}
-                  {!active && (
-                    <View style={[StyleSheet.absoluteFill, booksStyles.subTabPillInactiveFill]} pointerEvents="none" />
-                  )}
+                  {active && <View style={booksStyles.segmentActivePill} />}
                   <Text style={{
                     fontFamily: active ? 'PlayfairDisplay_700Bold' : 'PlayfairDisplay_400Regular',
                     fontSize: 12,
-                    color: active ? '#EDEDED' : '#6B6B6B',
+                    color: active ? '#0A0A0A' : '#6B6B6B',
                     letterSpacing: 0.3,
+                    zIndex: 1,
                   }}>
                     {label}
                   </Text>
                 </Pressable>
               );
             })}
-
-            {/* Right metadata */}
-            <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 4 }}>
-              {activeTab === 'discover' && (
-                trendingLoading
-                  ? <ActivityIndicator size="small" color="#ABABAB" />
-                  : <>
-                      <TrendingUp size={11} color="#ABABAB" strokeWidth={1.5} />
-                      <Text style={{ fontSize: 10, color: '#ABABAB', letterSpacing: 0.3 }}>This year</Text>
-                    </>
-              )}
-              {activeTab === 'foryou' && selectedInterests.length > 0 && (
-                <Text style={{ fontFamily: 'PlayfairDisplay_400Regular_Italic', fontSize: 10, color: '#ABABAB' }} numberOfLines={1}>
-                  {selectedInterests.slice(0, 2).join(' · ')}
-                </Text>
-              )}
-              {activeTab === 'library' && library.length > 0 && (
-                <Text style={{ fontFamily: 'PlayfairDisplay_400Regular_Italic', fontSize: 10, color: '#ABABAB' }}>
-                  {library.length} book{library.length !== 1 ? 's' : ''}
-                </Text>
-              )}
-            </View>
+          </View>
+          {/* Metadata row below */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', marginTop: 8, gap: 4 }}>
+            {activeTab === 'discover' && (
+              trendingLoading
+                ? <ActivityIndicator size="small" color="#ABABAB" />
+                : <>
+                    <TrendingUp size={11} color="#ABABAB" strokeWidth={1.5} />
+                    <Text style={{ fontSize: 10, color: '#ABABAB', letterSpacing: 0.3 }}>This year</Text>
+                  </>
+            )}
+            {activeTab === 'foryou' && selectedInterests.length > 0 && (
+              <Text style={{ fontFamily: 'PlayfairDisplay_400Regular_Italic', fontSize: 10, color: '#ABABAB' }} numberOfLines={1}>
+                {selectedInterests.slice(0, 2).join(' · ')}
+              </Text>
+            )}
+            {activeTab === 'library' && library.length > 0 && (
+              <Text style={{ fontFamily: 'PlayfairDisplay_400Regular_Italic', fontSize: 10, color: '#ABABAB' }}>
+                {library.length} book{library.length !== 1 ? 's' : ''}
+              </Text>
+            )}
           </View>
         </View>
       )}
@@ -569,7 +560,7 @@ export default function BooksTab() {
 const booksStyles = StyleSheet.create({
   // Glass search bar
   searchBarShadow: {
-    borderRadius: 14,
+    borderRadius: 20,
     ...Platform.select({
       ios: {
         shadowColor: '#000',
@@ -582,7 +573,7 @@ const booksStyles = StyleSheet.create({
   },
   searchBar: {
     overflow: 'hidden',
-    borderRadius: 14,
+    borderRadius: 20,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.88)',
     flexDirection: 'row',
@@ -596,35 +587,48 @@ const booksStyles = StyleSheet.create({
   },
   searchBarFill: {
     backgroundColor: 'rgba(255,255,255,0.65)',
-    borderRadius: 14,
-  },
-  // Sub-tab pills
-  subTabPill: {
-    overflow: 'hidden',
-    paddingHorizontal: 14,
-    paddingVertical: 7,
     borderRadius: 20,
-    borderWidth: 1,
   },
-  subTabPillActive: {
-    backgroundColor: 'rgba(10,10,10,0.88)',
-    borderColor: 'rgba(10,10,10,0.88)',
-  },
-  subTabPillInactive: {
-    backgroundColor: Platform.select({
-      ios: 'transparent',
-      android: 'rgba(255,255,255,0.6)',
-    }),
-    borderColor: 'rgba(255,255,255,0.85)',
+  // Segmented tab control
+  segmentContainer: {
+    flexDirection: 'row',
+    overflow: 'hidden',
+    borderRadius: 20,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255,255,255,0.9)',
+    backgroundColor: Platform.select({ android: 'rgba(255,255,255,0.55)' }),
     ...Platform.select({
       ios: {
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.06,
-        shadowRadius: 6,
+        shadowRadius: 8,
       },
+      android: { elevation: 3 },
     }),
   },
+  segmentFill: {
+    backgroundColor: 'rgba(255,255,255,0.45)',
+    borderRadius: 20,
+  },
+  segmentItem: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 9,
+  },
+  segmentActivePill: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(255,255,255,0.82)',
+    borderRadius: 16,
+    marginHorizontal: 3,
+    marginVertical: 3,
+  },
+  // kept for potential re-use
   subTabPillInactiveFill: {
     backgroundColor: 'rgba(255,255,255,0.58)',
     borderRadius: 20,

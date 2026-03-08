@@ -1,4 +1,5 @@
-// app/index.tsx — onboarding gate
+// app/index.tsx — auth + onboarding gate
+import { useAuthStore } from '@/store/authStore';
 import { useOnboardingStore } from '@/store/onboardingStore';
 import { Redirect } from 'expo-router';
 import { useEffect, useState } from 'react';
@@ -10,29 +11,38 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
+type Destination = '/(auth)/sign-in' | '/(onboarding)' | '/(home)';
+
 export default function Index() {
-  const [onboardingDone, setOnboardingDone] = useState(false);
+  const [destination, setDestination] = useState<Destination | null>(null);
   const [navigating, setNavigating] = useState(false);
+  const checkAuthStatus = useAuthStore((s) => s.checkAuthStatus);
   const checkOnboardingStatus = useOnboardingStore((s) => s.checkOnboardingStatus);
 
   // White overlay fades out revealing ivory beneath, then we navigate
   const overlayOpacity = useSharedValue(1);
 
   useEffect(() => {
-    checkOnboardingStatus().then((complete) => {
-      setOnboardingDone(complete);
-      // Brief pause so the wordmark is visible, then dissolve (400ms delay + 700ms fade)
+    (async () => {
+      const authed = await checkAuthStatus();
+      if (!authed) {
+        setDestination('/(auth)/sign-in');
+      } else {
+        const onboardingDone = await checkOnboardingStatus();
+        setDestination(onboardingDone ? '/(home)' : '/(onboarding)');
+      }
+      // Brief pause so the wordmark is visible, then dissolve
       overlayOpacity.value = withDelay(400, withTiming(0, { duration: 700 }));
       setTimeout(() => setNavigating(true), 1100);
-    });
-  }, [checkOnboardingStatus]);
+    })();
+  }, [checkAuthStatus, checkOnboardingStatus]);
 
   const overlayStyle = useAnimatedStyle(() => ({
     opacity: overlayOpacity.value,
   }));
 
-  if (navigating) {
-    return <Redirect href={onboardingDone ? '/(home)' : '/(onboarding)'} />;
+  if (navigating && destination) {
+    return <Redirect href={destination} />;
   }
 
   return (

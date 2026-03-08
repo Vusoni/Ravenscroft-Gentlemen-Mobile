@@ -2,21 +2,11 @@
 import { ContinueButton } from '@/components/ContinueButton';
 import { InterestTag } from '@/components/InterestTag';
 import { OnboardingProgress } from '@/components/OnboardingProgress';
+import { INTERESTS } from '@/constants/interests';
 import { useOnboardingStore } from '@/store/onboardingStore';
 import { router } from 'expo-router';
 import { ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-
-const INTERESTS = [
-  'Exercise',
-  'Literature',
-  'Stoicism',
-  'Journaling',
-  'Travel & Culture',
-  'Music',
-  'Theatre & Cinema',
-  'Morning Rituals',
-];
 
 export default function Screen4Interests() {
   const selectedInterests = useOnboardingStore((s) => s.selectedInterests);
@@ -59,7 +49,7 @@ export default function Screen4Interests() {
             style={{ fontFamily: 'PlayfairDisplay_400Regular' }}
           >
             Behind every remarkable man is a collection of pursuits he took seriously. Not hobbies —
-            disciplines. Select what speaks to you honestly, and we'll shape a routine worthy of it.
+            disciplines. Select what speaks to you honestly, and we&apos;ll shape a routine worthy of it.
           </Text>
         </View>
 
@@ -69,7 +59,7 @@ export default function Screen4Interests() {
             className="text-ink text-[19px] leading-7"
             style={{ fontFamily: 'PlayfairDisplay_700Bold' }}
           >
-            Select a few pursuits{'\n'}that speak to you.{'\n'}We'll handle the rest.
+            Select a few pursuits{'\n'}that speak to you.{'\n'}We&apos;ll handle the rest.
           </Text>
         </View>
 

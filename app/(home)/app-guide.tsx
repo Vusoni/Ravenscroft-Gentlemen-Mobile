@@ -149,7 +149,9 @@ const GUIDE_CONTENT: Block[] = [
 
 // ─── Content renderers ────────────────────────────────────────────────────────
 
-function ChapterHeader({ block, t, fontSize }: { block: Extract<Block, { type: 'chapter' }>; t: typeof THEMES['light']; fontSize: FontSize }) {
+type ThemeColors = typeof THEMES[keyof typeof THEMES];
+
+function ChapterHeader({ block, t, fontSize }: { block: Extract<Block, { type: 'chapter' }>; t: ThemeColors; fontSize: FontSize }) {
   return (
     <View style={styles.chapterBlock}>
       <Text style={[styles.chapterNum, { color: t.chapterNum, fontSize: FONT_SIZES[fontSize] - 1 }]}>
@@ -163,7 +165,7 @@ function ChapterHeader({ block, t, fontSize }: { block: Extract<Block, { type: '
   );
 }
 
-function SubchapterHeader({ block, t, fontSize }: { block: Extract<Block, { type: 'subchapter' }>; t: typeof THEMES['light']; fontSize: FontSize }) {
+function SubchapterHeader({ block, t, fontSize }: { block: Extract<Block, { type: 'subchapter' }>; t: ThemeColors; fontSize: FontSize }) {
   return (
     <View style={styles.subchapterBlock}>
       <Text style={[styles.subchapterNum, { color: t.chapterNum, fontSize: FONT_SIZES[fontSize] - 2 }]}>

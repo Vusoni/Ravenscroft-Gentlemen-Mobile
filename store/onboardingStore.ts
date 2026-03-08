@@ -25,11 +25,11 @@ export const useOnboardingStore = create<OnboardingState>((set, get) => ({
   toggleInterest: (tag: string) => {
     const { selectedInterests } = get();
     const exists = selectedInterests.includes(tag);
-    set({
-      selectedInterests: exists
-        ? selectedInterests.filter((t) => t !== tag)
-        : [...selectedInterests, tag],
-    });
+    const updated = exists
+      ? selectedInterests.filter((t) => t !== tag)
+      : [...selectedInterests, tag];
+    set({ selectedInterests: updated });
+    AsyncStorage.setItem(INTERESTS_KEY, JSON.stringify(updated));
   },
 
   setDOB: (date: Date) => {
@@ -58,7 +58,7 @@ export const useOnboardingStore = create<OnboardingState>((set, get) => ({
   },
 
   resetOnboarding: async () => {
-    await AsyncStorage.multiRemove([ONBOARDING_KEY, INTERESTS_KEY, DOB_KEY]);
+    await AsyncStorage.multiRemove([ONBOARDING_KEY, INTERESTS_KEY, DOB_KEY, 'ravenscroft_soundtrack']);
     set({
       isOnboardingComplete: false,
       selectedInterests: [],

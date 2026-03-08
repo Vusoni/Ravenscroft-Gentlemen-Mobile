@@ -1,8 +1,12 @@
 // app/(home)/(tabs)/profile.tsx
 import { TAB_BAR_BOTTOM_OFFSET } from '@/components/GlassTabBar';
 import { GlassCard } from '@/components/GlassCard';
+import { INTERESTS } from '@/constants/interests';
+import { InterestTag } from '@/components/InterestTag';
+import { useAuthStore } from '@/store/authStore';
 import { useBooksStore } from '@/store/booksStore';
 import { useOnboardingStore } from '@/store/onboardingStore';
+import { useSoundtrackStore } from '@/store/soundtrackStore';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
@@ -15,14 +19,21 @@ import {
   Compass,
   Flame,
   HelpCircle,
+  Layers,
   Lock,
   LogOut,
   MoreHorizontal,
+  Music,
+  PenLine,
   ScrollText,
+  Shirt,
+  X,
 } from 'lucide-react-native';
 import { useCallback, useEffect, useState } from 'react';
 import {
   Alert,
+  Image,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -34,6 +45,7 @@ import Animated, {
   FadeIn,
   FadeInDown,
   FadeInUp,
+  type SharedValue,
   interpolate,
   useAnimatedScrollHandler,
   useAnimatedStyle,
@@ -42,7 +54,7 @@ import Animated, {
   withSpring,
   withTiming,
 } from 'react-native-reanimated';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const AnimatedScrollView = Animated.createAnimatedComponent(ScrollView);
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
@@ -57,10 +69,12 @@ type SettingRow = {
 
 // ─── Section data ─────────────────────────────────────────────────────────────
 const ACCOUNT_ROWS: SettingRow[] = [
-  { id: 'library',   label: 'My Library',             icon: BookOpen },
-  { id: 'bookmarks', label: 'Saved Articles',          icon: BookMarked },
-  { id: 'reading',   label: 'Reading History',         icon: ScrollText },
-  { id: 'guide',     label: 'The Ravenscroft Guide',   icon: Compass },
+  { id: 'library',    label: 'My Library',             icon: BookOpen },
+  { id: 'bookmarks',  label: 'Saved Articles',         icon: BookMarked },
+  { id: 'reading',    label: 'Reading History',        icon: ScrollText },
+  { id: 'appearance', label: 'My Appearance',          icon: Shirt },
+  { id: 'wardrobe',   label: 'My Wardrobe',            icon: Layers },
+  { id: 'guide',      label: 'The Ravenscroft Guide',  icon: Compass },
 ];
 
 const SETTINGS_ROWS: SettingRow[] = [
@@ -74,7 +88,9 @@ const SUPPORT_ROWS: SettingRow[] = [
 ];
 
 const ROW_HANDLERS: Record<string, () => void> = {
-  guide: () => router.push('/(home)/app-guide'),
+  guide:      () => router.push('/(home)/app-guide'),
+  appearance: () => router.push('/(home)/appearance-setup'),
+  wardrobe:   () => router.push('/(home)/wardrobe'),
 };
 
 // ─── Animated Counter ─────────────────────────────────────────────────────────
@@ -121,7 +137,7 @@ function AnimatedCounter({ target, delay = 0 }: { target: number; delay?: number
 }
 
 // ─── Banner ───────────────────────────────────────────────────────────────────
-function BannerHeader({ topInset, scrollY }: { topInset: number; scrollY: Animated.SharedValue<number> }) {
+function BannerHeader({ topInset, scrollY }: { topInset: number; scrollY: SharedValue<number> }) {
   const bannerHeight = topInset + 164;
 
   const parallaxStyle = useAnimatedStyle(() => ({
@@ -407,7 +423,7 @@ function StatCell({ value, label, delay }: { value: number; label: string; delay
 }
 
 // ─── Interest chips ───────────────────────────────────────────────────────────
-function InterestChips({ interests }: { interests: string[] }) {
+function InterestChips({ interests, onEdit }: { interests: string[]; onEdit: () => void }) {
   if (interests.length === 0) return null;
   return (
     <Animated.View entering={FadeInDown.delay(650).duration(500)}>
@@ -417,6 +433,21 @@ function InterestChips({ interests }: { interests: string[] }) {
         contentContainerStyle={{ paddingHorizontal: 24, gap: 8, paddingVertical: 4 }}
         style={{ marginTop: 16 }}
       >
+        <Pressable
+          onPress={onEdit}
+          style={[profileStyles.chip, { flexDirection: 'row', alignItems: 'center', gap: 4 }]}
+        >
+          {Platform.OS === 'ios' && (
+            <BlurView
+              intensity={40}
+              tint="systemChromeMaterialLight"
+              style={StyleSheet.absoluteFill}
+            />
+          )}
+          <View style={[StyleSheet.absoluteFill, profileStyles.chipFill]} pointerEvents="none" />
+          <PenLine size={11} color="#1C1C1C" strokeWidth={1.8} />
+          <Text style={profileStyles.chipLabel}>Edit</Text>
+        </Pressable>
         {interests.map((tag) => (
           <View
             key={tag}
@@ -438,6 +469,100 @@ function InterestChips({ interests }: { interests: string[] }) {
   );
 }
 
+// ─── Edit Interests Modal ────────────────────────────────────────────────────
+function EditInterestsModal({ visible, onClose }: { visible: boolean; onClose: () => void }) {
+  const selectedInterests = useOnboardingStore((s) => s.selectedInterests);
+  const toggleInterest = useOnboardingStore((s) => s.toggleInterest);
+
+  return (
+    <Modal
+      visible={visible}
+      animationType="slide"
+      presentationStyle="pageSheet"
+      onRequestClose={onClose}
+    >
+      <SafeAreaView style={{ flex: 1, backgroundColor: '#EDEDED' }}>
+        {/* Header */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 16 }}>
+          <Text style={{ fontFamily: 'PlayfairDisplay_700Bold', fontSize: 20, color: '#0A0A0A' }}>
+            Edit Interests
+          </Text>
+          <Pressable onPress={onClose} hitSlop={12}>
+            <X size={22} color="#0A0A0A" strokeWidth={1.8} />
+          </Pressable>
+        </View>
+
+        {/* Interest tags */}
+        <View style={{ paddingHorizontal: 16, flexDirection: 'row', flexWrap: 'wrap' }}>
+          {INTERESTS.map((tag) => (
+            <InterestTag
+              key={tag}
+              label={tag}
+              selected={selectedInterests.includes(tag)}
+              onToggle={() => toggleInterest(tag)}
+            />
+          ))}
+        </View>
+
+        {/* Summary */}
+        {selectedInterests.length > 0 && (
+          <View style={{ marginHorizontal: 20, marginTop: 20, backgroundColor: 'rgba(10,10,10,0.05)', borderRadius: 16, paddingHorizontal: 16, paddingVertical: 12 }}>
+            <Text style={{ fontFamily: 'PlayfairDisplay_400Regular', fontSize: 10, color: 'rgba(10,10,10,0.4)', letterSpacing: 1.6, textTransform: 'uppercase', marginBottom: 4 }}>
+              Your selection · {selectedInterests.length}
+            </Text>
+            <Text style={{ fontFamily: 'PlayfairDisplay_400Regular', fontSize: 13, color: '#0A0A0A', lineHeight: 20 }}>
+              {selectedInterests.join(' · ')}
+            </Text>
+          </View>
+        )}
+      </SafeAreaView>
+    </Modal>
+  );
+}
+
+// ─── Soundtrack card ─────────────────────────────────────────────────────────
+function SoundtrackCard() {
+  const selectedSong = useSoundtrackStore((s) => s.selectedSong);
+  const hydrated = useSoundtrackStore((s) => s.hydrated);
+
+  useEffect(() => {
+    useSoundtrackStore.getState().hydrate();
+  }, []);
+
+  if (!hydrated || !selectedSong) return null;
+
+  return (
+    <Animated.View
+      entering={FadeInDown.delay(680).duration(500)}
+      style={{ marginHorizontal: 24, marginTop: 16 }}
+    >
+      <GlassCard intensity={46} borderRadius={22} fillColor="rgba(255,255,255,0.58)">
+        <View style={{ flexDirection: 'row', alignItems: 'center', padding: 14 }}>
+          <Image
+            source={{ uri: selectedSong.albumArt }}
+            style={{ width: 52, height: 52, borderRadius: 12 }}
+          />
+          <View style={{ flex: 1, marginLeft: 14 }}>
+            <Text
+              numberOfLines={1}
+              style={{ fontFamily: 'PlayfairDisplay_700Bold', fontSize: 14, color: '#0A0A0A' }}
+            >
+              {selectedSong.title}
+            </Text>
+            <Text
+              numberOfLines={1}
+              style={{ fontFamily: 'PlayfairDisplay_400Regular', fontSize: 12, color: '#6B6B6B', marginTop: 2 }}
+            >
+              {selectedSong.artist}
+            </Text>
+          </View>
+          <Music size={16} color="#ABABAB" strokeWidth={1.5} />
+        </View>
+      </GlassCard>
+    </Animated.View>
+  );
+}
+
 // ─── Streak row ───────────────────────────────────────────────────────────────
 function StreakRow() {
   return (
@@ -445,8 +570,8 @@ function StreakRow() {
       entering={FadeInDown.delay(700).duration(500)}
       style={{ marginHorizontal: 24, marginTop: 16 }}
     >
-      <GlassCard intensity={46} borderRadius={18} fillColor="rgba(255,255,255,0.58)">
-        <View style={{ overflow: 'hidden', borderRadius: 18, flexDirection: 'row', alignItems: 'center' }}>
+      <GlassCard intensity={46} borderRadius={22} fillColor="rgba(255,255,255,0.58)">
+        <View style={{ overflow: 'hidden', borderRadius: 22, flexDirection: 'row', alignItems: 'center' }}>
           {/* Gold left accent */}
           <View style={{ width: 3, height: '100%', backgroundColor: '#D4B896', position: 'absolute', left: 0 }} />
           <View style={{
@@ -536,13 +661,13 @@ function SettingItem({
           flexDirection: 'row',
           alignItems: 'center',
           paddingHorizontal: 16,
-          paddingVertical: 14,
+          paddingVertical: 15,
           // Glass surface
           backgroundColor: 'rgba(255,255,255,0.6)',
-          borderTopLeftRadius:     isFirst ? 16 : 0,
-          borderTopRightRadius:    isFirst ? 16 : 0,
-          borderBottomLeftRadius:  isLast  ? 16 : 0,
-          borderBottomRightRadius: isLast  ? 16 : 0,
+          borderTopLeftRadius:     isFirst ? 20 : 0,
+          borderTopRightRadius:    isFirst ? 20 : 0,
+          borderBottomLeftRadius:  isLast  ? 20 : 0,
+          borderBottomRightRadius: isLast  ? 20 : 0,
           borderBottomWidth: isLast ? 0 : StyleSheet.hairlineWidth,
           borderBottomColor: 'rgba(0,0,0,0.07)',
         },
@@ -606,16 +731,16 @@ function SettingSection({ title, rows, delay }: { title: string; rows: SettingRo
       {/* Glass card wrapper for the whole section */}
       <View style={{
         marginHorizontal: 24,
-        borderRadius: 16,
+        borderRadius: 20,
         overflow: 'hidden',
         borderWidth: 1,
         borderColor: 'rgba(255,255,255,0.85)',
         ...Platform.select({
           ios: {
             shadowColor: '#1C1C1C',
-            shadowOffset: { width: 0, height: 5 },
-            shadowOpacity: 0.08,
-            shadowRadius: 16,
+            shadowOffset: { width: 0, height: 6 },
+            shadowOpacity: 0.10,
+            shadowRadius: 20,
           },
           android: { elevation: 6 },
         }),
@@ -675,7 +800,7 @@ function SignOutButton({ onPress, disabled }: { onPress: () => void; disabled: b
         marginHorizontal: 24,
         marginTop: 28,
         marginBottom: 8,
-        borderRadius: 18,
+        borderRadius: 24,
         overflow: 'hidden',
         borderWidth: 1,
         borderColor: 'rgba(220,100,100,0.3)',
@@ -684,7 +809,7 @@ function SignOutButton({ onPress, disabled }: { onPress: () => void; disabled: b
             shadowColor: '#B83025',
             shadowOffset: { width: 0, height: 4 },
             shadowOpacity: 0.1,
-            shadowRadius: 12,
+            shadowRadius: 14,
           },
           android: { elevation: 4 },
         }),
@@ -704,7 +829,7 @@ function SignOutButton({ onPress, disabled }: { onPress: () => void; disabled: b
           style={[
             {
               backgroundColor: 'rgba(255,235,235,0.72)',
-              borderRadius: 17,
+              borderRadius: 23,
               flexDirection: 'row',
               alignItems: 'center',
               justifyContent: 'center',
@@ -737,9 +862,11 @@ function SignOutButton({ onPress, disabled }: { onPress: () => void; disabled: b
 // ─── Main screen ──────────────────────────────────────────────────────────────
 export default function ProfileTab() {
   const insets = useSafeAreaInsets();
-  const { resetOnboarding, selectedInterests } = useOnboardingStore();
+  const { selectedInterests } = useOnboardingStore();
+  const signOut = useAuthStore((s) => s.signOut);
   const { library } = useBooksStore();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [editInterestsVisible, setEditInterestsVisible] = useState(false);
   const scrollY = useSharedValue(0);
 
   const scrollHandler = useAnimatedScrollHandler({
@@ -759,8 +886,8 @@ export default function ProfileTab() {
           style: 'destructive',
           onPress: async () => {
             setIsLoggingOut(true);
-            await resetOnboarding();
-            router.replace('/(onboarding)');
+            await signOut();
+            router.replace('/(auth)/sign-in');
           },
         },
       ],
@@ -768,6 +895,7 @@ export default function ProfileTab() {
   };
 
   return (
+    <>
     <AnimatedScrollView
       onScroll={scrollHandler}
       scrollEventThrottle={16}
@@ -791,7 +919,10 @@ export default function ProfileTab() {
       />
 
       {/* Interest chips */}
-      <InterestChips interests={selectedInterests} />
+      <InterestChips interests={selectedInterests} onEdit={() => setEditInterestsVisible(true)} />
+
+      {/* Soundtrack */}
+      <SoundtrackCard />
 
       {/* Streak glass card */}
       <StreakRow />
@@ -808,6 +939,12 @@ export default function ProfileTab() {
       {/* Sign out */}
       <SignOutButton onPress={handleLogOut} disabled={isLoggingOut} />
     </AnimatedScrollView>
+
+    <EditInterestsModal
+      visible={editInterestsVisible}
+      onClose={() => setEditInterestsVisible(false)}
+    />
+    </>
   );
 }
 

@@ -212,7 +212,7 @@ export default function BookDetailScreen() {
             <Text style={styles.ctaLabel}>{canRead ? 'Read Now' : 'Not Available'}</Text>
           </Pressable>
 
-          {/* Secondary — Gentleman's Reflections */}
+          {/* Secondary — Gentleman&apos;s Reflections */}
           <Pressable
             style={styles.ctaOutline}
             onPress={() =>
@@ -222,7 +222,7 @@ export default function BookDetailScreen() {
             accessibilityLabel="Open AI chat and reflections"
           >
             <Sparkles size={14} color="#0A0A0A" strokeWidth={1.5} />
-            <Text style={styles.ctaOutlineLabel}>Gentleman's Reflections</Text>
+            <Text style={styles.ctaOutlineLabel}>Gentleman&apos;s Reflections</Text>
           </Pressable>
         </View>
       </ScrollView>
