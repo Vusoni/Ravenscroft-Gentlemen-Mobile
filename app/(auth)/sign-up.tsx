@@ -2,7 +2,6 @@
 import { useAuthStore } from '@/store/authStore';
 import { useOnboardingStore } from '@/store/onboardingStore';
 import { router } from 'expo-router';
-import { Lock, Mail, Type } from 'lucide-react-native';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -19,6 +18,7 @@ import {
 import Animated, {
   FadeIn,
   FadeInDown,
+  interpolateColor,
   useAnimatedStyle,
   useSharedValue,
   withSequence,
@@ -29,9 +29,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
-// ─── Underline Input ──────────────────────────────────────────────────────────
-function UnderlineInput({
-  icon,
+// ─── Box Input ────────────────────────────────────────────────────────────────
+function BoxInput({
+  label,
   placeholder,
   value,
   onChangeText,
@@ -42,8 +42,8 @@ function UnderlineInput({
   onSubmitEditing,
   inputRef,
 }: {
-  icon: React.ReactNode;
-  placeholder: string;
+  label: string;
+  placeholder?: string;
   value: string;
   onChangeText: (t: string) => void;
   secureTextEntry?: boolean;
@@ -53,25 +53,16 @@ function UnderlineInput({
   onSubmitEditing?: () => void;
   inputRef?: React.RefObject<TextInput | null>;
 }) {
-  const lineWidth = useSharedValue(0);
+  const focused = useSharedValue(0);
 
-  const handleFocus = useCallback(() => {
-    lineWidth.value = withSpring(1, { damping: 18, stiffness: 180 });
-  }, []);
-
-  const handleBlur = useCallback(() => {
-    lineWidth.value = withSpring(0, { damping: 18, stiffness: 180 });
-  }, []);
-
-  const lineStyle = useAnimatedStyle(() => ({
-    transform: [{ scaleX: lineWidth.value }],
-    opacity: lineWidth.value,
+  const borderStyle = useAnimatedStyle(() => ({
+    borderColor: interpolateColor(focused.value, [0, 1], ['rgba(0,0,0,0)', '#0A0A0A']),
   }));
 
   return (
-    <View style={inputStyles.container}>
-      <View style={inputStyles.iconWrap}>{icon}</View>
-      <View style={{ flex: 1 }}>
+    <View style={inputStyles.wrapper}>
+      <Text style={inputStyles.label}>{label}</Text>
+      <Animated.View style={[inputStyles.box, borderStyle]}>
         <TextInput
           ref={inputRef}
           value={value}
@@ -84,13 +75,11 @@ function UnderlineInput({
           keyboardType={keyboardType}
           returnKeyType={returnKeyType ?? 'done'}
           onSubmitEditing={onSubmitEditing}
-          onFocus={handleFocus}
-          onBlur={handleBlur}
+          onFocus={() => { focused.value = withSpring(1, { damping: 18, stiffness: 180 }); }}
+          onBlur={() => { focused.value = withSpring(0, { damping: 18, stiffness: 180 }); }}
           style={inputStyles.input}
         />
-        <View style={inputStyles.staticLine} />
-        <Animated.View style={[inputStyles.focusLine, lineStyle]} />
-      </View>
+      </Animated.View>
     </View>
   );
 }
@@ -176,17 +165,25 @@ export default function SignUp() {
         </Animated.View>
 
         <View style={[styles.inner, { paddingBottom: insets.bottom + 40 }]}>
-          <Animated.Text entering={FadeInDown.delay(100).duration(500)} style={styles.title}>
-            REGISTER
+
+          {/* Title */}
+          <Animated.Text entering={FadeInDown.delay(80).duration(500)} style={styles.title}>
+            Create account.
           </Animated.Text>
 
+          {/* Subtitle */}
+          <Animated.Text entering={FadeInDown.delay(160).duration(500)} style={styles.subtitle}>
+            Join Ravenscroft and begin your journey.
+          </Animated.Text>
+
+          {/* Form */}
           <Animated.View
-            entering={FadeInDown.delay(200).duration(500)}
+            entering={FadeInDown.delay(240).duration(500)}
             style={[styles.form, formShakeStyle]}
           >
-            <UnderlineInput
-              icon={<Type size={16} color="#ABABAB" strokeWidth={1.5} />}
-              placeholder="Display Name (optional)"
+            <BoxInput
+              label="Display Name"
+              placeholder="Your name (optional)"
               value={displayName}
               onChangeText={setDisplayName}
               autoCapitalize="words"
@@ -194,11 +191,11 @@ export default function SignUp() {
               onSubmitEditing={() => emailRef.current?.focus()}
             />
 
-            <View style={{ height: 28 }} />
+            <View style={{ height: 16 }} />
 
-            <UnderlineInput
-              icon={<Mail size={16} color="#ABABAB" strokeWidth={1.5} />}
-              placeholder="Email"
+            <BoxInput
+              label="Email Address"
+              placeholder="your@email.com"
               value={email}
               onChangeText={setEmail}
               keyboardType="email-address"
@@ -208,11 +205,11 @@ export default function SignUp() {
               inputRef={emailRef}
             />
 
-            <View style={{ height: 28 }} />
+            <View style={{ height: 16 }} />
 
-            <UnderlineInput
-              icon={<Lock size={16} color="#ABABAB" strokeWidth={1.5} />}
-              placeholder="Password (min. 6 characters)"
+            <BoxInput
+              label="Password"
+              placeholder="Min. 6 characters"
               value={password}
               onChangeText={setPassword}
               secureTextEntry
@@ -221,26 +218,29 @@ export default function SignUp() {
               inputRef={passwordRef}
             />
 
+            {/* Error */}
             {error ? (
               <Animated.Text entering={FadeIn.duration(300)} style={styles.errorText}>
                 {error}
               </Animated.Text>
             ) : (
-              <View style={{ height: 22 }} />
+              <View style={{ height: 18 }} />
             )}
 
-            <Animated.View
-              entering={FadeInDown.delay(300).duration(500)}
-              style={styles.signInRow}
-            >
+            {/* Sign in link */}
+            <View style={styles.signInRow}>
               <Text style={styles.signInBase}>Already have an account?{' '}</Text>
               <Pressable onPress={() => router.back()} hitSlop={8}>
                 <Text style={styles.signInLink}>Sign In</Text>
               </Pressable>
-            </Animated.View>
+            </View>
           </Animated.View>
 
-          <Animated.View entering={FadeInDown.delay(400).duration(500)} style={buttonAnimStyle}>
+          {/* CREATE ACCOUNT button */}
+          <Animated.View
+            entering={FadeInDown.delay(360).duration(500)}
+            style={buttonAnimStyle}
+          >
             <AnimatedPressable
               onPress={handleRegister}
               disabled={isLoading}
@@ -259,6 +259,20 @@ export default function SignUp() {
               )}
             </AnimatedPressable>
           </Animated.View>
+
+          {/* SIGN IN secondary button */}
+          <Animated.View entering={FadeInDown.delay(440).duration(500)} style={{ marginTop: 12 }}>
+            <Pressable
+              onPress={() => router.back()}
+              disabled={isLoading}
+              style={({ pressed }) => [styles.signInButton, pressed && { opacity: 0.6 }]}
+              accessibilityRole="button"
+              accessibilityLabel="Sign in"
+            >
+              <Text style={styles.signInButtonLabel}>SIGN IN INSTEAD</Text>
+            </Pressable>
+          </Animated.View>
+
         </View>
       </KeyboardAvoidingView>
     </TouchableWithoutFeedback>
@@ -281,27 +295,33 @@ const styles = StyleSheet.create({
   },
   inner: {
     flex: 1,
-    paddingHorizontal: 36,
+    paddingHorizontal: 32,
     justifyContent: 'center',
   },
   title: {
     fontFamily: 'PlayfairDisplay_700Bold',
-    fontSize: 30,
-    letterSpacing: 3,
+    fontSize: 34,
     color: '#0A0A0A',
-    textAlign: 'center',
-    marginBottom: 44,
+    marginBottom: 8,
+    lineHeight: 40,
+  },
+  subtitle: {
+    fontFamily: 'PlayfairDisplay_400Regular_Italic',
+    fontSize: 14,
+    color: '#6B6B6B',
+    lineHeight: 22,
+    marginBottom: 32,
   },
   form: {
-    marginBottom: 32,
+    marginBottom: 24,
   },
   errorText: {
     fontFamily: 'PlayfairDisplay_400Regular_Italic',
     fontSize: 12,
     color: '#B83025',
     textAlign: 'center',
-    marginTop: 14,
-    height: 22,
+    marginTop: 12,
+    height: 20,
   },
   signInRow: {
     flexDirection: 'row',
@@ -321,7 +341,7 @@ const styles = StyleSheet.create({
   },
   registerButton: {
     backgroundColor: '#0A0A0A',
-    borderRadius: 4,
+    borderRadius: 50,
     paddingVertical: 18,
     alignItems: 'center',
     justifyContent: 'center',
@@ -332,38 +352,44 @@ const styles = StyleSheet.create({
     letterSpacing: 3,
     color: '#EDEDED',
   },
+  signInButton: {
+    borderRadius: 50,
+    paddingVertical: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: '#0A0A0A',
+    backgroundColor: 'transparent',
+  },
+  signInButtonLabel: {
+    fontFamily: 'PlayfairDisplay_700Bold',
+    fontSize: 13,
+    letterSpacing: 3,
+    color: '#0A0A0A',
+  },
 });
 
 const inputStyles = StyleSheet.create({
-  container: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
+  wrapper: {
+    gap: 6,
   },
-  iconWrap: {
-    width: 20,
-    alignItems: 'center',
-    paddingBottom: 2,
+  label: {
+    fontFamily: 'PlayfairDisplay_400Regular',
+    fontSize: 12,
+    color: '#6B6B6B',
+    letterSpacing: 0.3,
+  },
+  box: {
+    backgroundColor: '#F0F0EE',
+    borderRadius: 14,
+    borderWidth: 1,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
   },
   input: {
     fontFamily: 'PlayfairDisplay_400Regular',
     fontSize: 15,
     color: '#0A0A0A',
-    paddingVertical: 8,
-    paddingRight: 4,
-  },
-  staticLine: {
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: '#D4D4D4',
-    marginTop: 2,
-  },
-  focusLine: {
-    height: 1.5,
-    backgroundColor: '#0A0A0A',
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    transformOrigin: 'left',
+    padding: 0,
   },
 });

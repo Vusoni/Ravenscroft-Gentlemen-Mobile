@@ -3,7 +3,6 @@ import { useAuthStore } from '@/store/authStore';
 import { useOnboardingStore } from '@/store/onboardingStore';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import { router } from 'expo-router';
-import { Lock, Mail } from 'lucide-react-native';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -20,6 +19,7 @@ import {
 import Animated, {
   FadeIn,
   FadeInDown,
+  interpolateColor,
   useAnimatedStyle,
   useSharedValue,
   withSequence,
@@ -43,9 +43,9 @@ function GoogleIcon({ size = 18 }: { size?: number }) {
   );
 }
 
-// ─── Underline Input ──────────────────────────────────────────────────────────
-function UnderlineInput({
-  icon,
+// ─── Box Input ────────────────────────────────────────────────────────────────
+function BoxInput({
+  label,
   placeholder,
   value,
   onChangeText,
@@ -56,8 +56,8 @@ function UnderlineInput({
   onSubmitEditing,
   inputRef,
 }: {
-  icon: React.ReactNode;
-  placeholder: string;
+  label: string;
+  placeholder?: string;
   value: string;
   onChangeText: (t: string) => void;
   secureTextEntry?: boolean;
@@ -67,25 +67,16 @@ function UnderlineInput({
   onSubmitEditing?: () => void;
   inputRef?: React.RefObject<TextInput | null>;
 }) {
-  const lineWidth = useSharedValue(0);
+  const focused = useSharedValue(0);
 
-  const handleFocus = useCallback(() => {
-    lineWidth.value = withSpring(1, { damping: 18, stiffness: 180 });
-  }, []);
-
-  const handleBlur = useCallback(() => {
-    lineWidth.value = withSpring(0, { damping: 18, stiffness: 180 });
-  }, []);
-
-  const lineStyle = useAnimatedStyle(() => ({
-    transform: [{ scaleX: lineWidth.value }],
-    opacity: lineWidth.value,
+  const borderStyle = useAnimatedStyle(() => ({
+    borderColor: interpolateColor(focused.value, [0, 1], ['rgba(0,0,0,0)', '#0A0A0A']),
   }));
 
   return (
-    <View style={inputStyles.container}>
-      <View style={inputStyles.iconWrap}>{icon}</View>
-      <View style={{ flex: 1 }}>
+    <View style={inputStyles.wrapper}>
+      <Text style={inputStyles.label}>{label}</Text>
+      <Animated.View style={[inputStyles.box, borderStyle]}>
         <TextInput
           ref={inputRef}
           value={value}
@@ -98,14 +89,42 @@ function UnderlineInput({
           keyboardType={keyboardType}
           returnKeyType={returnKeyType ?? 'done'}
           onSubmitEditing={onSubmitEditing}
-          onFocus={handleFocus}
-          onBlur={handleBlur}
+          onFocus={() => { focused.value = withSpring(1, { damping: 18, stiffness: 180 }); }}
+          onBlur={() => { focused.value = withSpring(0, { damping: 18, stiffness: 180 }); }}
           style={inputStyles.input}
         />
-        <View style={inputStyles.staticLine} />
-        <Animated.View style={[inputStyles.focusLine, lineStyle]} />
-      </View>
+      </Animated.View>
     </View>
+  );
+}
+
+// ─── OAuth button ─────────────────────────────────────────────────────────────
+function OAuthButton({
+  onPress,
+  disabled,
+  icon,
+  label,
+}: {
+  onPress: () => void;
+  disabled: boolean;
+  icon: React.ReactNode;
+  label: string;
+}) {
+  const scale = useSharedValue(1);
+  const animStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+  return (
+    <AnimatedPressable
+      onPress={onPress}
+      disabled={disabled}
+      onPressIn={() => { scale.value = withSpring(0.96, { damping: 15 }); }}
+      onPressOut={() => { scale.value = withSpring(1, { damping: 15 }); }}
+      style={[styles.oauthButton, disabled && { opacity: 0.5 }, animStyle]}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+    >
+      {icon}
+      <Text style={styles.oauthLabel}>{label}</Text>
+    </AnimatedPressable>
   );
 }
 
@@ -189,19 +208,55 @@ export default function SignIn() {
         </Animated.View>
 
         <View style={[styles.inner, { paddingBottom: insets.bottom + 32 }]}>
+
           {/* Title */}
-          <Animated.Text entering={FadeInDown.delay(100).duration(500)} style={styles.title}>
-            SIGN IN
+          <Animated.Text entering={FadeInDown.delay(80).duration(500)} style={styles.title}>
+            Welcome Back.
           </Animated.Text>
+
+          {/* Subtitle */}
+          <Animated.Text entering={FadeInDown.delay(160).duration(500)} style={styles.subtitle}>
+            Sign in to continue your pursuit of excellence.
+          </Animated.Text>
+
+          {/* OAuth row — side by side, ABOVE form */}
+          <Animated.View
+            entering={FadeInDown.delay(240).duration(500)}
+            style={styles.oauthRow}
+          >
+            <OAuthButton
+              onPress={handleGoogle}
+              disabled={isLoading}
+              icon={<GoogleIcon size={17} />}
+              label="Google"
+            />
+            {Platform.OS === 'ios' && appleAvailable && (
+              <AppleAuthentication.AppleAuthenticationButton
+                buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
+                buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.WHITE_OUTLINE}
+                cornerRadius={50}
+                style={styles.appleButton}
+                onPress={handleApple}
+              />
+            )}
+          </Animated.View>
+
+          {/* "or" divider */}
+          <Animated.View
+            entering={FadeInDown.delay(300).duration(500)}
+            style={styles.orRow}
+          >
+            <Text style={styles.orLabel}>or</Text>
+          </Animated.View>
 
           {/* Form */}
           <Animated.View
-            entering={FadeInDown.delay(200).duration(500)}
+            entering={FadeInDown.delay(360).duration(500)}
             style={[styles.form, formShakeStyle]}
           >
-            <UnderlineInput
-              icon={<Mail size={16} color="#ABABAB" strokeWidth={1.5} />}
-              placeholder="Email"
+            <BoxInput
+              label="Email Address"
+              placeholder="your@email.com"
               value={email}
               onChangeText={setEmail}
               keyboardType="email-address"
@@ -210,11 +265,11 @@ export default function SignIn() {
               onSubmitEditing={() => passwordRef.current?.focus()}
             />
 
-            <View style={{ height: 28 }} />
+            <View style={{ height: 16 }} />
 
-            <UnderlineInput
-              icon={<Lock size={16} color="#ABABAB" strokeWidth={1.5} />}
-              placeholder="Password"
+            <BoxInput
+              label="Password"
+              placeholder="••••••••"
               value={password}
               onChangeText={setPassword}
               secureTextEntry
@@ -223,30 +278,27 @@ export default function SignIn() {
               inputRef={passwordRef}
             />
 
-            {/* Error / spacer */}
+            {/* Error */}
             {error ? (
               <Animated.Text entering={FadeIn.duration(300)} style={styles.errorText}>
                 {error}
               </Animated.Text>
             ) : (
-              <View style={{ height: 22 }} />
+              <View style={{ height: 18 }} />
             )}
 
             {/* Register link */}
-            <Animated.View
-              entering={FadeInDown.delay(300).duration(500)}
-              style={styles.registerRow}
-            >
+            <View style={styles.registerRow}>
               <Text style={styles.registerBase}>Don&apos;t have an account?{' '}</Text>
               <Pressable onPress={() => router.push('/(auth)/sign-up')} hitSlop={8}>
                 <Text style={styles.registerLink}>Register Here</Text>
               </Pressable>
-            </Animated.View>
+            </View>
           </Animated.View>
 
-          {/* LOGIN button */}
+          {/* SIGN IN button */}
           <Animated.View
-            entering={FadeInDown.delay(400).duration(500)}
+            entering={FadeInDown.delay(440).duration(500)}
             style={buttonAnimStyle}
           >
             <AnimatedPressable
@@ -254,83 +306,32 @@ export default function SignIn() {
               disabled={isLoading}
               style={({ pressed }) => [styles.loginButton, pressed && { opacity: 0.85 }, isLoading && { opacity: 0.6 }]}
               accessibilityRole="button"
-              accessibilityLabel="Login"
+              accessibilityLabel="Sign in"
             >
               {isLoading ? (
                 <ActivityIndicator color="#EDEDED" size="small" />
               ) : (
-                <Text style={styles.loginButtonLabel}>LOGIN</Text>
+                <Text style={styles.loginButtonLabel}>SIGN IN</Text>
               )}
             </AnimatedPressable>
           </Animated.View>
 
-          {/* OAuth divider */}
-          <Animated.View
-            entering={FadeInDown.delay(500).duration(500)}
-            style={styles.dividerRow}
-          >
-            <View style={styles.dividerLine} />
-            <Text style={styles.dividerLabel}>or continue with</Text>
-            <View style={styles.dividerLine} />
-          </Animated.View>
-
-          {/* OAuth buttons */}
-          <Animated.View
-            entering={FadeInDown.delay(560).duration(500)}
-            style={styles.oauthStack}
-          >
-            {/* Google */}
-            <OAuthButton
-              onPress={handleGoogle}
+          {/* CREATE ACCOUNT secondary button */}
+          <Animated.View entering={FadeInDown.delay(520).duration(500)} style={{ marginTop: 12 }}>
+            <Pressable
+              onPress={() => router.push('/(auth)/sign-up')}
               disabled={isLoading}
-              icon={<GoogleIcon size={18} />}
-              label="Continue with Google"
-            />
-
-            {/* Apple — only on iOS where it's available */}
-            {Platform.OS === 'ios' && appleAvailable && (
-              <AppleAuthentication.AppleAuthenticationButton
-                buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
-                buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
-                cornerRadius={4}
-                style={styles.appleButton}
-                onPress={handleApple}
-              />
-            )}
+              style={({ pressed }) => [styles.createAccountButton, pressed && { opacity: 0.6 }]}
+              accessibilityRole="button"
+              accessibilityLabel="Create account"
+            >
+              <Text style={styles.createAccountLabel}>CREATE ACCOUNT</Text>
+            </Pressable>
           </Animated.View>
+
         </View>
       </KeyboardAvoidingView>
     </TouchableWithoutFeedback>
-  );
-}
-
-// ─── Reusable OAuth button ─────────────────────────────────────────────────
-function OAuthButton({
-  onPress,
-  disabled,
-  icon,
-  label,
-}: {
-  onPress: () => void;
-  disabled: boolean;
-  icon: React.ReactNode;
-  label: string;
-}) {
-  const scale = useSharedValue(1);
-  const animStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
-  return (
-    <AnimatedPressable
-      onPress={onPress}
-      disabled={disabled}
-      onPressIn={() => { scale.value = withSpring(0.97, { damping: 15 }); }}
-      onPressOut={() => { scale.value = withSpring(1, { damping: 15 }); }}
-      style={[styles.oauthButton, disabled && { opacity: 0.5 }, animStyle]}
-      accessibilityRole="button"
-      accessibilityLabel={label}
-    >
-      {icon}
-      <Text style={styles.oauthLabel}>{label}</Text>
-    </AnimatedPressable>
   );
 }
 
@@ -344,27 +345,85 @@ const styles = StyleSheet.create({
   },
   inner: {
     flex: 1,
-    paddingHorizontal: 36,
+    paddingHorizontal: 32,
     justifyContent: 'center',
   },
   title: {
     fontFamily: 'PlayfairDisplay_700Bold',
-    fontSize: 30,
-    letterSpacing: 3,
+    fontSize: 34,
     color: '#0A0A0A',
-    textAlign: 'center',
-    marginBottom: 44,
+    marginBottom: 8,
+    lineHeight: 40,
   },
+  subtitle: {
+    fontFamily: 'PlayfairDisplay_400Regular_Italic',
+    fontSize: 14,
+    color: '#6B6B6B',
+    lineHeight: 22,
+    marginBottom: 32,
+  },
+
+  // OAuth row
+  oauthRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 4,
+  },
+  oauthButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 50,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.08)',
+    paddingVertical: 14,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 8,
+      },
+      android: { elevation: 2 },
+    }),
+  },
+  oauthLabel: {
+    fontFamily: 'PlayfairDisplay_400Regular',
+    fontSize: 14,
+    color: '#1C1C1C',
+    letterSpacing: 0.2,
+  },
+  appleButton: {
+    flex: 1,
+    height: 50,
+  },
+
+  // "or" divider
+  orRow: {
+    alignItems: 'center',
+    marginVertical: 20,
+  },
+  orLabel: {
+    fontFamily: 'PlayfairDisplay_400Regular',
+    fontSize: 13,
+    color: '#ABABAB',
+    letterSpacing: 0.5,
+  },
+
+  // Form
   form: {
-    marginBottom: 24,
+    marginBottom: 20,
   },
   errorText: {
     fontFamily: 'PlayfairDisplay_400Regular_Italic',
     fontSize: 12,
     color: '#B83025',
     textAlign: 'center',
-    marginTop: 14,
-    height: 22,
+    marginTop: 12,
+    height: 20,
   },
   registerRow: {
     flexDirection: 'row',
@@ -382,9 +441,11 @@ const styles = StyleSheet.create({
     color: '#5B6AF0',
     fontFamily: 'PlayfairDisplay_700Bold',
   },
+
+  // CTA
   loginButton: {
     backgroundColor: '#0A0A0A',
-    borderRadius: 4,
+    borderRadius: 50,
     paddingVertical: 18,
     alignItems: 'center',
     justifyContent: 'center',
@@ -395,89 +456,44 @@ const styles = StyleSheet.create({
     letterSpacing: 3,
     color: '#EDEDED',
   },
-  dividerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    marginTop: 28,
-    marginBottom: 20,
-  },
-  dividerLine: {
-    flex: 1,
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: '#D4D4D4',
-  },
-  dividerLabel: {
-    fontFamily: 'PlayfairDisplay_400Regular',
-    fontSize: 11,
-    color: '#ABABAB',
-    letterSpacing: 0.5,
-  },
-  oauthStack: {
-    gap: 12,
-  },
-  oauthButton: {
-    flexDirection: 'row',
+  createAccountButton: {
+    borderRadius: 50,
+    paddingVertical: 17,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 12,
-    backgroundColor: 'rgba(255,255,255,0.72)',
-    borderRadius: 4,
-    borderWidth: 1,
-    borderColor: '#D4D4D4',
-    paddingVertical: 14,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.06,
-        shadowRadius: 6,
-      },
-      android: { elevation: 2 },
-    }),
+    borderWidth: 1.5,
+    borderColor: '#0A0A0A',
+    backgroundColor: 'transparent',
   },
-  oauthLabel: {
-    fontFamily: 'PlayfairDisplay_400Regular',
-    fontSize: 14,
-    color: '#1C1C1C',
-    letterSpacing: 0.2,
-  },
-  appleButton: {
-    height: 50,
-    width: '100%',
+  createAccountLabel: {
+    fontFamily: 'PlayfairDisplay_700Bold',
+    fontSize: 13,
+    letterSpacing: 3,
+    color: '#0A0A0A',
   },
 });
 
 const inputStyles = StyleSheet.create({
-  container: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
+  wrapper: {
+    gap: 6,
   },
-  iconWrap: {
-    width: 20,
-    alignItems: 'center',
-    paddingBottom: 2,
+  label: {
+    fontFamily: 'PlayfairDisplay_400Regular',
+    fontSize: 12,
+    color: '#6B6B6B',
+    letterSpacing: 0.3,
+  },
+  box: {
+    backgroundColor: '#F0F0EE',
+    borderRadius: 14,
+    borderWidth: 1,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
   },
   input: {
     fontFamily: 'PlayfairDisplay_400Regular',
     fontSize: 15,
     color: '#0A0A0A',
-    paddingVertical: 8,
-    paddingRight: 4,
-  },
-  staticLine: {
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: '#D4D4D4',
-    marginTop: 2,
-  },
-  focusLine: {
-    height: 1.5,
-    backgroundColor: '#0A0A0A',
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    transformOrigin: 'left',
+    padding: 0,
   },
 });

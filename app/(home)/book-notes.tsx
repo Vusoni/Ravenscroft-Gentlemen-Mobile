@@ -1,5 +1,6 @@
 // app/(home)/book-notes.tsx — AI literary companion chat
 import { ChatMessage, useChatStore } from '@/store/chatStore';
+import { useKindleStore } from '@/store/kindleStore';
 import { useNotesStore } from '@/store/notesStore';
 import { useOnboardingStore } from '@/store/onboardingStore';
 import { Book } from '@/types/book';
@@ -35,6 +36,7 @@ async function askClaude(
   messages: ChatMessage[],
   book: Book,
   userNoteTexts: string[],
+  kindleHighlightTexts: string[],
   userInterests: string[],
   signal: AbortSignal,
 ): Promise<string> {
@@ -48,6 +50,9 @@ async function askClaude(
       : '',
     userNoteTexts.length > 0
       ? `\nThe reader's personal notes:\n${userNoteTexts.map((n) => `- ${n}`).join('\n')}`
+      : '',
+    kindleHighlightTexts.length > 0
+      ? `\nThe reader's Kindle highlights:\n${kindleHighlightTexts.map((h) => `- "${h}"`).join('\n')}`
       : '',
   ]
     .filter(Boolean)
@@ -216,7 +221,13 @@ export default function BookNotesScreen() {
     try {
       const history = getMessages(book.id);
       const userNotes = getNotesForBook(book.id).map((n) => n.text);
-      const responseText = await askClaude(history, book, userNotes, selectedInterests, controller.signal);
+      const kindleHighlights = useKindleStore
+        .getState()
+        .getClippingsForLibraryBook(book.id)
+        .filter((c) => c.type === 'highlight')
+        .slice(0, 20)
+        .map((c) => c.text);
+      const responseText = await askClaude(history, book, userNotes, kindleHighlights, selectedInterests, controller.signal);
 
       const assistantMsg = await addMessage(book.id, { role: 'assistant', text: responseText });
       setMessages((prev) => [...prev, assistantMsg]);

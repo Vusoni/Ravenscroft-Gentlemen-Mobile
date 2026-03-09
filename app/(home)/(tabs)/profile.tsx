@@ -17,6 +17,7 @@ import {
   BookOpen,
   ChevronRight,
   Compass,
+  FileText,
   Flame,
   HelpCircle,
   Layers,
@@ -74,6 +75,7 @@ const ACCOUNT_ROWS: SettingRow[] = [
   { id: 'reading',    label: 'Reading History',        icon: ScrollText },
   { id: 'appearance', label: 'My Appearance',          icon: Shirt },
   { id: 'wardrobe',   label: 'My Wardrobe',            icon: Layers },
+  { id: 'kindle',     label: 'Kindle Highlights',       icon: FileText },
   { id: 'guide',      label: 'The Ravenscroft Guide',  icon: Compass },
 ];
 
@@ -88,6 +90,7 @@ const SUPPORT_ROWS: SettingRow[] = [
 ];
 
 const ROW_HANDLERS: Record<string, () => void> = {
+  kindle:     () => router.push('/(home)/kindle-import'),
   guide:      () => router.push('/(home)/app-guide'),
   appearance: () => router.push('/(home)/appearance-setup'),
   wardrobe:   () => router.push('/(home)/wardrobe'),

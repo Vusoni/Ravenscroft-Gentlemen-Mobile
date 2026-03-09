@@ -99,7 +99,12 @@ export const useAuthStore = create<AuthState>((set) => ({
       }
       const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
       if (result.type !== 'success') {
-        set({ isLoading: false, error: null }); // cancelled — no error message
+        set({ isLoading: false, error: 'Google sign in is not available. Please use email and password.' });
+        return false;
+      }
+      // Check if Supabase returned an error in the redirect URL (e.g. provider not enabled)
+      if (result.url.includes('error=') || result.url.includes('error_code=')) {
+        set({ isLoading: false, error: 'Google sign in is not available. Please use email and password.' });
         return false;
       }
       const { error: sessionError } = await supabase.auth.exchangeCodeForSession(result.url);

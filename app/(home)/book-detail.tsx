@@ -6,7 +6,9 @@ import { useNotesStore } from '@/store/notesStore';
 import { Book, UserNote } from '@/types/book';
 import * as Haptics from 'expo-haptics';
 import { router, useLocalSearchParams } from 'expo-router';
-import { ArrowLeft, Bookmark, BookOpen, PenLine, Sparkles, X } from 'lucide-react-native';
+import { useKindleStore } from '@/store/kindleStore';
+import { KindleHighlightCard } from '@/components/KindleHighlightCard';
+import { ArrowLeft, Bookmark, BookOpen, Highlighter, PenLine, Sparkles, X } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
 import {
   Alert,
@@ -49,9 +51,13 @@ export default function BookDetailScreen() {
   const saved = isInLibrary(book.id);
   const canRead = GUTENBERG_TEXT_MAP[book.id] !== undefined;
   const [showNotesModal, setShowNotesModal] = useState(false);
+  const [showKindleModal, setShowKindleModal] = useState(false);
 
-  useEffect(() => { hydrateNotes(); }, []);
+  const { hydrate: hydrateKindle, getClippingsForLibraryBook } = useKindleStore();
+
+  useEffect(() => { hydrateNotes(); hydrateKindle(); }, []);
   const bookNotes = getNotesForBook(book.id);
+  const kindleHighlights = getClippingsForLibraryBook(book.id);
 
   const coverUrl = book.coverUrl ?? null;
 
@@ -195,6 +201,39 @@ export default function BookDetailScreen() {
           </Pressable>
         )}
 
+        {/* Kindle Highlights section */}
+        {kindleHighlights.length > 0 && (
+          <>
+            <View style={styles.notesSectionDivider} />
+            <View style={styles.notesSectionHeader}>
+              <View style={styles.notesSectionLeft}>
+                <Highlighter size={14} color="#0A0A0A" strokeWidth={1.5} />
+                <Text style={styles.sectionLabel}>Kindle Highlights</Text>
+              </View>
+              <Pressable onPress={() => setShowKindleModal(true)} hitSlop={8}>
+                <Text style={styles.viewAllLabel}>View All ({kindleHighlights.length})</Text>
+              </Pressable>
+            </View>
+
+            <Pressable
+              style={styles.notePreviewCard}
+              onPress={() => setShowKindleModal(true)}
+            >
+              <Text style={styles.notePreviewText} numberOfLines={3}>
+                {'\u201C'}{kindleHighlights[kindleHighlights.length - 1].text}{'\u201D'}
+              </Text>
+              <View style={styles.notePreviewMeta}>
+                <Text style={styles.noteMetaLabel}>
+                  Loc {kindleHighlights[kindleHighlights.length - 1].locationStart}
+                </Text>
+                <Text style={styles.noteMetaLabel}>
+                  {getRelativeDate(kindleHighlights[kindleHighlights.length - 1].addedAt)}
+                </Text>
+              </View>
+            </Pressable>
+          </>
+        )}
+
         {/* CTAs */}
         <View style={styles.ctaGroup}>
           {/* Primary — Read Now */}
@@ -262,6 +301,31 @@ export default function BookDetailScreen() {
             ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
             ListEmptyComponent={() => (
               <Text style={styles.notesEmptyText}>No notes yet.</Text>
+            )}
+          />
+        </SafeAreaView>
+      </Modal>
+      {/* Kindle Highlights Modal */}
+      <Modal
+        visible={showKindleModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowKindleModal(false)}
+      >
+        <SafeAreaView style={{ flex: 1, backgroundColor: '#FAFAF8' }} edges={['top', 'bottom']}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>Kindle Highlights — {book.title}</Text>
+            <Pressable onPress={() => setShowKindleModal(false)} hitSlop={12}>
+              <X size={18} color="#6B6B6B" strokeWidth={1.5} />
+            </Pressable>
+          </View>
+          <FlatList
+            data={[...kindleHighlights].reverse()}
+            keyExtractor={(item) => item.id}
+            contentContainerStyle={styles.notesListContent}
+            renderItem={({ item }) => <KindleHighlightCard clipping={item} />}
+            ListEmptyComponent={() => (
+              <Text style={styles.notesEmptyText}>No Kindle highlights.</Text>
             )}
           />
         </SafeAreaView>

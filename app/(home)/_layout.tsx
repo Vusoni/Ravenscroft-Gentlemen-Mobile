@@ -15,6 +15,7 @@ export default function HomeLayout() {
       <Stack.Screen name="journal-detail" options={{ animation: 'slide_from_right' }} />
       <Stack.Screen name="appearance-setup" options={{ animation: 'slide_from_right' }} />
       <Stack.Screen name="wardrobe" options={{ animation: 'slide_from_right' }} />
+      <Stack.Screen name="kindle-import" options={{ animation: 'slide_from_right' }} />
     </Stack>
   );
 }
