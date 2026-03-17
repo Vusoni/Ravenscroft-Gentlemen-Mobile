@@ -3,6 +3,7 @@ import { useAuthStore } from '@/store/authStore';
 import { useOnboardingStore } from '@/store/onboardingStore';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import { router } from 'expo-router';
+import { Eye, EyeOff } from 'lucide-react-native';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -10,6 +11,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -55,6 +57,8 @@ function BoxInput({
   returnKeyType,
   onSubmitEditing,
   inputRef,
+  rightIcon,
+  textContentType,
 }: {
   label: string;
   placeholder?: string;
@@ -66,6 +70,8 @@ function BoxInput({
   returnKeyType?: 'done' | 'next' | 'go';
   onSubmitEditing?: () => void;
   inputRef?: React.RefObject<TextInput | null>;
+  rightIcon?: React.ReactNode;
+  textContentType?: 'emailAddress' | 'password' | 'newPassword' | 'none';
 }) {
   const focused = useSharedValue(0);
 
@@ -77,22 +83,27 @@ function BoxInput({
     <View style={inputStyles.wrapper}>
       <Text style={inputStyles.label}>{label}</Text>
       <Animated.View style={[inputStyles.box, borderStyle]}>
-        <TextInput
-          ref={inputRef}
-          value={value}
-          onChangeText={onChangeText}
-          placeholder={placeholder}
-          placeholderTextColor="#ABABAB"
-          secureTextEntry={secureTextEntry}
-          autoCapitalize={autoCapitalize ?? 'none'}
-          autoCorrect={false}
-          keyboardType={keyboardType}
-          returnKeyType={returnKeyType ?? 'done'}
-          onSubmitEditing={onSubmitEditing}
-          onFocus={() => { focused.value = withSpring(1, { damping: 18, stiffness: 180 }); }}
-          onBlur={() => { focused.value = withSpring(0, { damping: 18, stiffness: 180 }); }}
-          style={inputStyles.input}
-        />
+        <View style={inputStyles.inputRow}>
+          <TextInput
+            ref={inputRef}
+            value={value}
+            onChangeText={onChangeText}
+            placeholder={placeholder}
+            placeholderTextColor="#ABABAB"
+            secureTextEntry={secureTextEntry}
+            autoCapitalize={autoCapitalize ?? 'none'}
+            autoCorrect={false}
+            spellCheck={false}
+            keyboardType={keyboardType}
+            returnKeyType={returnKeyType ?? 'done'}
+            textContentType={textContentType ?? 'none'}
+            onSubmitEditing={onSubmitEditing}
+            onFocus={() => { focused.value = withSpring(1, { damping: 18, stiffness: 180 }); }}
+            onBlur={() => { focused.value = withSpring(0, { damping: 18, stiffness: 180 }); }}
+            style={inputStyles.input}
+          />
+          {rightIcon}
+        </View>
       </Animated.View>
     </View>
   );
@@ -133,12 +144,14 @@ export default function SignIn() {
   const insets = useSafeAreaInsets();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [appleAvailable, setAppleAvailable] = useState(false);
   const passwordRef = useRef<TextInput | null>(null);
   const { signIn, signInWithGoogle, signInWithApple, isLoading, error, clearError } = useAuthStore();
   const checkOnboardingStatus = useOnboardingStore((s) => s.checkOnboardingStatus);
 
   const buttonScale = useSharedValue(1);
+  const secondaryScale = useSharedValue(1);
   const shakeX = useSharedValue(0);
 
   useEffect(() => {
@@ -166,12 +179,23 @@ export default function SignIn() {
 
   const handleLogin = useCallback(async () => {
     Keyboard.dismiss();
-    if (!email.trim() || !password.trim()) { triggerShake(); return; }
+    // Strip invisible unicode iOS inserts silently; replace commas (common mobile typo for period)
+    const cleanEmail = email
+      .replace(/[\s\u00a0\u200b\u200c\u200d\ufeff]+/g, '')
+      .replace(/,/g, '.')
+      .toLowerCase();
+    if (!cleanEmail || !password.trim()) { triggerShake(); return; }
+    const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+    if (!emailRe.test(cleanEmail)) {
+      useAuthStore.setState({ error: 'Please enter a valid email address.' });
+      triggerShake();
+      return;
+    }
     buttonScale.value = withSpring(0.96, { damping: 15 }, () => {
       'worklet';
       buttonScale.value = withSpring(1, { damping: 15 });
     });
-    const ok = await signIn(email.trim(), password);
+    const ok = await signIn(cleanEmail, password);
     if (ok) { await navigateAfterAuth(); } else { triggerShake(); }
   }, [email, password, signIn, navigateAfterAuth, triggerShake]);
 
@@ -189,6 +213,10 @@ export default function SignIn() {
     transform: [{ scale: buttonScale.value }],
   }));
 
+  const secondaryAnimStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: secondaryScale.value }],
+  }));
+
   const formShakeStyle = useAnimatedStyle(() => ({
     transform: [{ translateX: shakeX.value }],
   }));
@@ -199,15 +227,20 @@ export default function SignIn() {
         style={{ flex: 1, backgroundColor: '#EDEDED' }}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
-        {/* Wordmark */}
-        <Animated.View
-          entering={FadeIn.duration(600)}
-          style={{ position: 'absolute', top: insets.top + 20, alignSelf: 'center' }}
+        <ScrollView
+          contentContainerStyle={[
+            styles.inner,
+            { paddingTop: insets.top + 48, paddingBottom: insets.bottom + 32 },
+          ]}
+          keyboardShouldPersistTaps="handled"
+          bounces={false}
+          showsVerticalScrollIndicator={false}
         >
-          <Text style={styles.wordmark}>RAVENSCROFT</Text>
-        </Animated.View>
-
-        <View style={[styles.inner, { paddingBottom: insets.bottom + 32 }]}>
+          {/* Wordmark */}
+          <Animated.View entering={FadeIn.duration(600)} style={styles.wordmarkRow}>
+            <Text style={styles.wordmark}>RAVENSCROFT</Text>
+            <View style={styles.hairline} />
+          </Animated.View>
 
           {/* Title */}
           <Animated.Text entering={FadeInDown.delay(80).duration(500)} style={styles.title}>
@@ -215,15 +248,12 @@ export default function SignIn() {
           </Animated.Text>
 
           {/* Subtitle */}
-          <Animated.Text entering={FadeInDown.delay(160).duration(500)} style={styles.subtitle}>
+          <Animated.Text entering={FadeInDown.delay(120).duration(500)} style={styles.subtitle}>
             Sign in to continue your pursuit of excellence.
           </Animated.Text>
 
-          {/* OAuth row — side by side, ABOVE form */}
-          <Animated.View
-            entering={FadeInDown.delay(240).duration(500)}
-            style={styles.oauthRow}
-          >
+          {/* OAuth row */}
+          <Animated.View entering={FadeInDown.delay(160).duration(500)} style={styles.oauthRow}>
             <OAuthButton
               onPress={handleGoogle}
               disabled={isLoading}
@@ -242,18 +272,15 @@ export default function SignIn() {
           </Animated.View>
 
           {/* "or" divider */}
-          <Animated.View
-            entering={FadeInDown.delay(300).duration(500)}
-            style={styles.orRow}
-          >
+          <Animated.View entering={FadeInDown.delay(240).duration(500)} style={styles.orRow}>
+            <View style={styles.orLine} />
             <Text style={styles.orLabel}>or</Text>
+            <View style={styles.orLine} />
           </Animated.View>
 
           {/* Form */}
-          <Animated.View
-            entering={FadeInDown.delay(360).duration(500)}
-            style={[styles.form, formShakeStyle]}
-          >
+          <Animated.View entering={FadeInDown.delay(320).duration(500)}>
+          <Animated.View style={[styles.form, formShakeStyle]}>
             <BoxInput
               label="Email Address"
               placeholder="your@email.com"
@@ -262,6 +289,7 @@ export default function SignIn() {
               keyboardType="email-address"
               autoCapitalize="none"
               returnKeyType="next"
+              textContentType="emailAddress"
               onSubmitEditing={() => passwordRef.current?.focus()}
             />
 
@@ -272,11 +300,33 @@ export default function SignIn() {
               placeholder="••••••••"
               value={password}
               onChangeText={setPassword}
-              secureTextEntry
+              secureTextEntry={!showPassword}
               returnKeyType="go"
               onSubmitEditing={handleLogin}
               inputRef={passwordRef}
+              rightIcon={
+                <Pressable
+                  onPress={() => setShowPassword((v) => !v)}
+                  hitSlop={8}
+                  accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
+                >
+                  {showPassword ? (
+                    <EyeOff size={18} color="#6B6B6B" strokeWidth={1.5} />
+                  ) : (
+                    <Eye size={18} color="#6B6B6B" strokeWidth={1.5} />
+                  )}
+                </Pressable>
+              }
             />
+
+            {/* Forgot password */}
+            <Pressable
+              onPress={() => {/* TODO: forgot password flow */}}
+              hitSlop={8}
+              style={styles.forgotRow}
+            >
+              <Text style={styles.forgotText}>Forgot password?</Text>
+            </Pressable>
 
             {/* Error */}
             {error ? (
@@ -286,21 +336,14 @@ export default function SignIn() {
             ) : (
               <View style={{ height: 18 }} />
             )}
-
-            {/* Register link */}
-            <View style={styles.registerRow}>
-              <Text style={styles.registerBase}>Don&apos;t have an account?{' '}</Text>
-              <Pressable onPress={() => router.push('/(auth)/sign-up')} hitSlop={8}>
-                <Text style={styles.registerLink}>Register Here</Text>
-              </Pressable>
-            </View>
+          </Animated.View>
           </Animated.View>
 
-          {/* SIGN IN button */}
-          <Animated.View
-            entering={FadeInDown.delay(440).duration(500)}
-            style={buttonAnimStyle}
-          >
+        </ScrollView>
+
+        {/* ── Bottom actions — always visible above keyboard ── */}
+        <Animated.View entering={FadeIn.duration(500)} style={[styles.bottomActions, { paddingBottom: insets.bottom + 24 }]}>
+          <Animated.View style={buttonAnimStyle}>
             <AnimatedPressable
               onPress={handleLogin}
               disabled={isLoading}
@@ -311,59 +354,69 @@ export default function SignIn() {
               {isLoading ? (
                 <ActivityIndicator color="#EDEDED" size="small" />
               ) : (
-                <Text style={styles.loginButtonLabel}>SIGN IN</Text>
+                <Text style={styles.loginButtonLabel}>CONTINUE</Text>
               )}
             </AnimatedPressable>
           </Animated.View>
 
-          {/* CREATE ACCOUNT secondary button */}
-          <Animated.View entering={FadeInDown.delay(520).duration(500)} style={{ marginTop: 12 }}>
-            <Pressable
-              onPress={() => router.push('/(auth)/sign-up')}
-              disabled={isLoading}
-              style={({ pressed }) => [styles.createAccountButton, pressed && { opacity: 0.6 }]}
-              accessibilityRole="button"
-              accessibilityLabel="Create account"
-            >
-              <Text style={styles.createAccountLabel}>CREATE ACCOUNT</Text>
-            </Pressable>
-          </Animated.View>
-
-        </View>
+          <AnimatedPressable
+            onPress={() => router.push('/(auth)/sign-up')}
+            disabled={isLoading}
+            onPressIn={() => { secondaryScale.value = withSpring(0.97, { damping: 14, stiffness: 200 }); }}
+            onPressOut={() => { secondaryScale.value = withSpring(1, { damping: 14, stiffness: 200 }); }}
+            style={[styles.secondaryButton, secondaryAnimStyle, { marginTop: 14 }]}
+            accessibilityRole="button"
+            accessibilityLabel="Create account"
+          >
+            <Text style={styles.secondaryLabel}>Create Account Instead</Text>
+            <Text style={styles.secondaryArrow}>→</Text>
+          </AnimatedPressable>
+        </Animated.View>
       </KeyboardAvoidingView>
     </TouchableWithoutFeedback>
   );
 }
 
 const styles = StyleSheet.create({
+  // ── Layout ──
+  inner: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+  },
+  wordmarkRow: {
+    alignItems: 'center',
+    marginBottom: 32,
+  },
   wordmark: {
     fontFamily: 'PlayfairDisplay_400Regular',
     fontSize: 13,
     letterSpacing: 4,
     color: '#0A0A0A',
-    opacity: 0.35,
+    opacity: 0.4,
+    marginBottom: 12,
   },
-  inner: {
-    flex: 1,
-    paddingHorizontal: 32,
-    justifyContent: 'center',
+  hairline: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: '#D4D4D4',
+    width: 60,
   },
   title: {
     fontFamily: 'PlayfairDisplay_700Bold',
     fontSize: 34,
     color: '#0A0A0A',
-    marginBottom: 8,
     lineHeight: 40,
+    marginBottom: 8,
   },
   subtitle: {
     fontFamily: 'PlayfairDisplay_400Regular_Italic',
     fontSize: 14,
     color: '#6B6B6B',
     lineHeight: 22,
-    marginBottom: 32,
+    marginBottom: 28,
   },
 
-  // OAuth row
+  // ── OAuth row ──
   oauthRow: {
     flexDirection: 'row',
     gap: 10,
@@ -401,10 +454,17 @@ const styles = StyleSheet.create({
     height: 50,
   },
 
-  // "or" divider
+  // ── "or" divider ──
   orRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginVertical: 20,
+    marginVertical: 16,
+    gap: 12,
+  },
+  orLine: {
+    flex: 1,
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: '#D4D4D4',
   },
   orLabel: {
     fontFamily: 'PlayfairDisplay_400Regular',
@@ -413,9 +473,19 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
 
-  // Form
+  // ── Form ──
   form: {
     marginBottom: 20,
+  },
+  forgotRow: {
+    alignSelf: 'flex-end',
+    marginTop: 10,
+  },
+  forgotText: {
+    fontFamily: 'PlayfairDisplay_400Regular',
+    fontSize: 12,
+    color: '#6B6B6B',
+    letterSpacing: 0.2,
   },
   errorText: {
     fontFamily: 'PlayfairDisplay_400Regular_Italic',
@@ -425,24 +495,8 @@ const styles = StyleSheet.create({
     marginTop: 12,
     height: 20,
   },
-  registerRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: 10,
-  },
-  registerBase: {
-    fontSize: 13,
-    color: '#6B6B6B',
-    fontFamily: 'PlayfairDisplay_400Regular',
-  },
-  registerLink: {
-    fontSize: 13,
-    color: '#5B6AF0',
-    fontFamily: 'PlayfairDisplay_700Bold',
-  },
 
-  // CTA
+  // ── CTA ──
   loginButton: {
     backgroundColor: '#0A0A0A',
     borderRadius: 50,
@@ -456,20 +510,40 @@ const styles = StyleSheet.create({
     letterSpacing: 3,
     color: '#EDEDED',
   },
-  createAccountButton: {
-    borderRadius: 50,
-    paddingVertical: 17,
+  secondaryButton: {
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1.5,
-    borderColor: '#0A0A0A',
-    backgroundColor: 'transparent',
+    gap: 8,
+    borderRadius: 50,
+    paddingVertical: 16,
+    backgroundColor: 'rgba(255,255,255,0.55)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.8)',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.06,
+        shadowRadius: 12,
+      },
+      android: { elevation: 3 },
+    }),
   },
-  createAccountLabel: {
-    fontFamily: 'PlayfairDisplay_700Bold',
-    fontSize: 13,
-    letterSpacing: 3,
-    color: '#0A0A0A',
+  secondaryLabel: {
+    fontFamily: 'PlayfairDisplay_400Regular',
+    fontSize: 14,
+    letterSpacing: 1,
+    color: '#1C1C1C',
+  },
+  secondaryArrow: {
+    fontSize: 16,
+    color: '#6B6B6B',
+    marginTop: -1,
+  },
+  bottomActions: {
+    paddingHorizontal: 24,
+    paddingTop: 12,
   },
 });
 
@@ -490,7 +564,12 @@ const inputStyles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 14,
   },
+  inputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   input: {
+    flex: 1,
     fontFamily: 'PlayfairDisplay_400Regular',
     fontSize: 15,
     color: '#0A0A0A',

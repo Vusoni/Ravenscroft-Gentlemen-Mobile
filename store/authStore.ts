@@ -20,7 +20,7 @@ interface AuthState {
   error: string | null;
   checkAuthStatus: () => Promise<boolean>;
   signIn: (email: string, password: string) => Promise<boolean>;
-  signUp: (email: string, password: string, displayName?: string) => Promise<boolean>;
+  signUp: (email: string, password: string, displayName?: string) => Promise<'ok' | 'confirm_email' | false>;
   signInWithGoogle: () => Promise<boolean>;
   signInWithApple: () => Promise<boolean>;
   signOut: () => Promise<void>;
@@ -81,8 +81,13 @@ export const useAuthStore = create<AuthState>((set) => ({
       set({ isLoading: false, error: error?.message ?? 'Registration failed.' });
       return false;
     }
+    // If email confirmation is enabled, Supabase returns user but no session
+    if (!data.session) {
+      set({ isLoading: false, error: null });
+      return 'confirm_email';
+    }
     set({ user: mapUser(data.user), isLoading: false });
-    return true;
+    return 'ok';
   },
 
   signInWithGoogle: async () => {
@@ -103,11 +108,18 @@ export const useAuthStore = create<AuthState>((set) => ({
         return false;
       }
       // Check if Supabase returned an error in the redirect URL (e.g. provider not enabled)
-      if (result.url.includes('error=') || result.url.includes('error_code=')) {
-        set({ isLoading: false, error: 'Google sign in is not available. Please use email and password.' });
+      const redirectUrl = new URL(result.url);
+      if (redirectUrl.searchParams.has('error') || redirectUrl.searchParams.has('error_code')) {
+        const desc = redirectUrl.searchParams.get('error_description') || 'Google sign in is not available.';
+        set({ isLoading: false, error: desc.replace(/\+/g, ' ') });
         return false;
       }
-      const { error: sessionError } = await supabase.auth.exchangeCodeForSession(result.url);
+      const code = redirectUrl.searchParams.get('code');
+      if (!code) {
+        set({ isLoading: false, error: 'Google sign in failed — no authorization code received.' });
+        return false;
+      }
+      const { error: sessionError } = await supabase.auth.exchangeCodeForSession(code);
       if (sessionError) {
         set({ isLoading: false, error: sessionError.message });
         return false;

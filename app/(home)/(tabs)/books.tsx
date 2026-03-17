@@ -13,7 +13,7 @@ import {
   TrendingUp,
   X,
 } from 'lucide-react-native';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Dimensions,
@@ -83,6 +83,12 @@ type OLWork = {
   subject?: string[];
 };
 
+type OLSearchResponse = {
+  numFound: number;
+  start: number;
+  docs: OLWork[];
+};
+
 async function fetchTrendingBooks(): Promise<Book[]> {
   const res = await fetch(
     'https://openlibrary.org/trending/yearly.json?limit=24',
@@ -104,16 +110,20 @@ async function fetchTrendingBooks(): Promise<Book[]> {
 }
 
 // ─── Open Library search (same API as trending — no key needed) ───────────────
-async function searchOpenLibrary(query: string): Promise<Book[]> {
+async function searchOpenLibrary(
+  query: string,
+  offset: number = 0,
+  signal?: AbortSignal,
+): Promise<{ books: Book[]; total: number }> {
   const res = await fetch(
-    `https://openlibrary.org/search.json?q=${encodeURIComponent(query)}&limit=20`,
-    { signal: AbortSignal.timeout(8000) },
+    `https://openlibrary.org/search.json?q=${encodeURIComponent(query)}&limit=20&offset=${offset}`,
+    { signal: signal ?? AbortSignal.timeout(8000) },
   );
   if (!res.ok) throw new Error(`OL ${res.status}`);
-  const data = await res.json();
+  const data: OLSearchResponse = await res.json();
   const docs: OLWork[] = data.docs ?? [];
-  return docs
-    .filter((d) => d.cover_i && d.title)
+  const books = docs
+    .filter((d) => d.cover_i && d.title && d.key)
     .map((d) => ({
       id: d.key!.replace('/works/', ''),
       title: d.title,
@@ -122,6 +132,7 @@ async function searchOpenLibrary(query: string): Promise<Book[]> {
       pageCount: d.number_of_pages_median,
       genre: d.subject?.[0],
     }));
+  return { books, total: data.numFound ?? 0 };
 }
 
 async function fetchForYouBooks(interests: string[]): Promise<Book[]> {
@@ -131,7 +142,7 @@ async function fetchForYouBooks(interests: string[]): Promise<Book[]> {
   const books: Book[] = [];
   for (const result of results) {
     if (result.status === 'fulfilled') {
-      for (const book of result.value.slice(0, 5)) {
+      for (const book of result.value.books.slice(0, 5)) {
         if (!seen.has(book.id) && book.coverUrl) {
           seen.add(book.id);
           books.push(book);
@@ -171,7 +182,7 @@ function SearchDot({ delay }: { delay: number }) {
         false,
       );
     }, delay);
-  }, []);
+  }, [delay, opacity]);
   const s = useAnimatedStyle(() => ({ opacity: opacity.value }));
   return <Animated.View style={[s, { width: 5, height: 5, borderRadius: 2.5, backgroundColor: '#ABABAB' }]} />;
 }
@@ -274,6 +285,9 @@ export default function BooksTab() {
   const [searchResults, setSearchResults] = useState<Book[]>([]);
   const [searching, setSearching] = useState(false);
   const [searchError, setSearchError] = useState(false);
+  const [searchOffset, setSearchOffset] = useState(0);
+  const [searchTotal, setSearchTotal] = useState(0);
+  const [loadingMore, setLoadingMore] = useState(false);
 
   const [trendingBooks, setTrendingBooks] = useState<Book[]>(CURATED_FALLBACK);
   const [trendingLoading, setTrendingLoading] = useState(true);
@@ -286,6 +300,14 @@ export default function BooksTab() {
   const searchH = useSharedValue(0);
   const searchStyle = useAnimatedStyle(() => ({ height: searchH.value, overflow: 'hidden' }));
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
+  const loadMoreScale = useSharedValue(1);
+  const loadMoreStyle = useAnimatedStyle(() => ({ transform: [{ scale: loadMoreScale.value }] }));
+
+  useEffect(() => () => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    abortRef.current?.abort();
+  }, []);
 
   useEffect(() => {
     hydrate();
@@ -301,7 +323,17 @@ export default function BooksTab() {
     }
   }, [hydrate]);
 
-  // Lazy-load For You on first visit
+  // Reset For You cache when interests change
+  const prevInterestsKey = useRef('');
+  useEffect(() => {
+    const key = selectedInterests.slice().sort().join(',');
+    if (key !== prevInterestsKey.current) {
+      prevInterestsKey.current = key;
+      forYouFetched.current = false;
+    }
+  }, [selectedInterests]);
+
+  // Lazy-load For You on first visit or after interests change
   useEffect(() => {
     if (activeTab === 'foryou' && !forYouFetched.current && selectedInterests.length > 0) {
       forYouFetched.current = true;
@@ -317,32 +349,88 @@ export default function BooksTab() {
     const open = !searchOpen;
     setSearchOpen(open);
     searchH.value = withTiming(open ? 52 : 0, { duration: 220 });
-    if (!open) { setQuery(''); setSearchResults([]); setSearchError(false); }
+    if (!open) {
+      abortRef.current?.abort();
+      setQuery('');
+      setSearchResults([]);
+      setSearchError(false);
+      setSearchOffset(0);
+      setSearchTotal(0);
+    }
   };
 
   const handleQueryChange = (text: string) => {
     setQuery(text);
     setSearchError(false);
+    abortRef.current?.abort();
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    if (!text.trim()) { setSearchResults([]); return; }
+    if (!text.trim()) {
+      setSearchResults([]);
+      setSearchOffset(0);
+      setSearchTotal(0);
+      return;
+    }
     debounceRef.current = setTimeout(async () => {
+      const controller = new AbortController();
+      abortRef.current = controller;
       setSearching(true);
       setSearchError(false);
+      setSearchOffset(0);
+      setSearchTotal(0);
+      setSearchResults([]);
       try {
-        const results = await searchOpenLibrary(text);
-        setSearchResults(results);
+        const { books, total } = await searchOpenLibrary(text, 0, controller.signal);
+        if (!controller.signal.aborted) {
+          setSearchResults(books);
+          setSearchTotal(total);
+        }
       } catch {
-        setSearchResults([]);
-        setSearchError(true);
+        if (!controller.signal.aborted) {
+          setSearchResults([]);
+          setSearchError(true);
+        }
       } finally {
-        setSearching(false);
+        if (!controller.signal.aborted) setSearching(false);
       }
     }, 400);
   };
 
+  const handleLoadMore = async () => {
+    if (loadingMore || searching) return;
+    const nextOffset = searchOffset + 20;
+    if (nextOffset >= searchTotal) return;
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+    setLoadingMore(true);
+    try {
+      const { books, total } = await searchOpenLibrary(query, nextOffset, controller.signal);
+      if (!controller.signal.aborted) {
+        const existingIds = new Set(searchResults.map((b) => b.id));
+        const fresh = books.filter((b) => !existingIds.has(b.id));
+        setSearchResults((prev) => [...prev, ...fresh]);
+        setSearchOffset(nextOffset);
+        setSearchTotal(total);
+      }
+    } catch {
+      // silent — user retains existing results
+    } finally {
+      if (!controller.signal.aborted) setLoadingMore(false);
+    }
+  };
+
+  const filteredLibrary = useMemo(() => {
+    if (!query.trim()) return library;
+    const lower = query.toLowerCase().trim();
+    return library.filter(
+      (b) => b.title.toLowerCase().includes(lower) || b.author.toLowerCase().includes(lower),
+    );
+  }, [library, query]);
+
   const showingSearch = searchOpen && query.trim().length > 0;
+  const hasMore = showingSearch && activeTab !== 'library' && searchOffset + 20 < searchTotal;
   const displayData = showingSearch
-    ? searchResults
+    ? (activeTab === 'library' ? filteredLibrary : searchResults)
     : activeTab === 'library'
       ? library
       : activeTab === 'foryou'
@@ -360,6 +448,16 @@ export default function BooksTab() {
             </Text>
             <Text style={{ fontFamily: 'PlayfairDisplay_400Regular_Italic', fontSize: 13, color: '#6B6B6B', textAlign: 'center', lineHeight: 20 }}>
               Unable to reach the books catalogue. Check your connection and try again.
+            </Text>
+          </View>
+        );
+      }
+      if (activeTab === 'library') {
+        return (
+          <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 60, paddingHorizontal: 32 }}>
+            <Search size={28} color="#D4D4D4" strokeWidth={1} />
+            <Text style={{ fontFamily: 'PlayfairDisplay_400Regular_Italic', fontSize: 14, color: '#6B6B6B', textAlign: 'center', marginTop: 12, lineHeight: 20 }}>
+              No books in your library match{'\n'}"{query.trim()}"
             </Text>
           </View>
         );
@@ -443,7 +541,7 @@ export default function BooksTab() {
             <TextInput
               value={query}
               onChangeText={handleQueryChange}
-              placeholder="Search any book…"
+              placeholder={activeTab === 'library' ? 'Search your library…' : 'Search any book…'}
               placeholderTextColor="#ABABAB"
               style={{ flex: 1, marginLeft: 8, fontFamily: 'PlayfairDisplay_400Regular', fontSize: 14, color: '#0A0A0A' }}
               autoCapitalize="none"
@@ -457,36 +555,36 @@ export default function BooksTab() {
       </Animated.View>
 
       {/* Tabs — unified glassmorphic segmented control */}
-      {!showingSearch && (
-        <View style={{ paddingHorizontal: 20, paddingTop: 12, paddingBottom: 8 }}>
-          <View style={booksStyles.segmentContainer}>
-            {Platform.OS === 'ios' && (
-              <BlurView intensity={56} tint="systemUltraThinMaterialLight" style={StyleSheet.absoluteFill} />
-            )}
-            <View style={[StyleSheet.absoluteFill, booksStyles.segmentFill]} pointerEvents="none" />
-            {TAB_LABELS.map(({ id, label }) => {
-              const active = activeTab === id;
-              return (
-                <Pressable
-                  key={id}
-                  onPress={() => setActiveTab(id)}
-                  style={booksStyles.segmentItem}
-                >
-                  {active && <View style={booksStyles.segmentActivePill} />}
-                  <Text style={{
-                    fontFamily: active ? 'PlayfairDisplay_700Bold' : 'PlayfairDisplay_400Regular',
-                    fontSize: 12,
-                    color: active ? '#0A0A0A' : '#6B6B6B',
-                    letterSpacing: 0.3,
-                    zIndex: 1,
-                  }}>
-                    {label}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
-          {/* Metadata row below */}
+      <View style={{ paddingHorizontal: 20, paddingTop: 12, paddingBottom: 8 }}>
+        <View style={booksStyles.segmentContainer}>
+          {Platform.OS === 'ios' && (
+            <BlurView intensity={56} tint="systemUltraThinMaterialLight" style={StyleSheet.absoluteFill} />
+          )}
+          <View style={[StyleSheet.absoluteFill, booksStyles.segmentFill]} pointerEvents="none" />
+          {TAB_LABELS.map(({ id, label }) => {
+            const active = activeTab === id;
+            return (
+              <Pressable
+                key={id}
+                onPress={() => setActiveTab(id)}
+                style={booksStyles.segmentItem}
+              >
+                {active && <View style={booksStyles.segmentActivePill} />}
+                <Text style={{
+                  fontFamily: active ? 'PlayfairDisplay_700Bold' : 'PlayfairDisplay_400Regular',
+                  fontSize: 12,
+                  color: active ? '#0A0A0A' : '#6B6B6B',
+                  letterSpacing: 0.3,
+                  zIndex: 1,
+                }}>
+                  {label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+        {/* Metadata row below */}
+        {!showingSearch && (
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', marginTop: 8, gap: 4 }}>
             {activeTab === 'discover' && (
               trendingLoading
@@ -507,8 +605,8 @@ export default function BooksTab() {
               </Text>
             )}
           </View>
-        </View>
-      )}
+        )}
+      </View>
 
       {/* Library personal header strip */}
       {activeTab === 'library' && !showingSearch && (
@@ -532,7 +630,7 @@ export default function BooksTab() {
         key="grid"
         style={{
           flex: 1,
-          backgroundColor: activeTab === 'library' && !showingSearch ? '#FAFAF8' : 'transparent',
+          backgroundColor: activeTab === 'library' ? '#FAFAF8' : 'transparent',
         }}
         contentContainerStyle={{
           paddingHorizontal: CARD_H_PAD,
@@ -544,11 +642,45 @@ export default function BooksTab() {
         columnWrapperStyle={{ gap: CARD_GAP }}
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={renderEmpty}
+        ListFooterComponent={
+          hasMore || loadingMore ? (
+            <View style={{ paddingVertical: 20, alignItems: 'center' }}>
+              {loadingMore ? (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <SearchDots />
+                  <Text style={{ fontFamily: 'PlayfairDisplay_400Regular_Italic', fontSize: 12, color: '#6B6B6B' }}>
+                    Loading more…
+                  </Text>
+                </View>
+              ) : (
+                <AnimatedPressable
+                  style={[loadMoreStyle, {
+                    borderWidth: StyleSheet.hairlineWidth,
+                    borderColor: '#D4D4D4',
+                    borderRadius: 20,
+                    paddingHorizontal: 24,
+                    paddingVertical: 10,
+                    backgroundColor: 'rgba(255,255,255,0.72)',
+                  }]}
+                  onPressIn={() => { loadMoreScale.value = withSpring(0.95, { damping: 18, stiffness: 180 }); }}
+                  onPressOut={() => { loadMoreScale.value = withSpring(1, { damping: 18, stiffness: 180 }); }}
+                  onPress={handleLoadMore}
+                  accessibilityRole="button"
+                  accessibilityLabel="Load more books"
+                >
+                  <Text style={{ fontFamily: 'PlayfairDisplay_400Regular_Italic', fontSize: 13, color: '#1C1C1C', letterSpacing: 0.3 }}>
+                    Load more
+                  </Text>
+                </AnimatedPressable>
+              )}
+            </View>
+          ) : null
+        }
         renderItem={({ item }) => (
           <BookCard
             book={item}
             inLibrary={isInLibrary(item.id)}
-            isLibraryView={activeTab === 'library' && !showingSearch}
+            isLibraryView={activeTab === 'library'}
           />
         )}
       />
@@ -627,10 +759,5 @@ const booksStyles = StyleSheet.create({
     borderRadius: 16,
     marginHorizontal: 3,
     marginVertical: 3,
-  },
-  // kept for potential re-use
-  subTabPillInactiveFill: {
-    backgroundColor: 'rgba(255,255,255,0.58)',
-    borderRadius: 20,
   },
 });

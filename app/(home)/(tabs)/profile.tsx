@@ -8,6 +8,7 @@ import { useBooksStore } from '@/store/booksStore';
 import { useOnboardingStore } from '@/store/onboardingStore';
 import { useSoundtrackStore } from '@/store/soundtrackStore';
 import { BlurView } from 'expo-blur';
+import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
@@ -15,6 +16,7 @@ import {
   Bell,
   BookMarked,
   BookOpen,
+  Camera,
   ChevronRight,
   Compass,
   FileText,
@@ -151,32 +153,32 @@ function BannerHeader({ topInset, scrollY }: { topInset: number; scrollY: Shared
   return (
     <Animated.View style={parallaxStyle}>
       <LinearGradient
-        colors={['#0A0A0A', '#151515', '#1C1C1C']}
+        colors={['#1A1614', '#1C1917', '#252220']}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={{ height: bannerHeight, paddingTop: topInset }}
       >
-        {/* Decorative concentric arcs */}
-        <View style={{
-          position: 'absolute',
-          bottom: 0,
-          right: 0,
-          width: 180,
-          height: 180,
-          opacity: 0.04,
-        }}>
-          {[0, 1, 2, 3, 4].map((i) => (
+        {/* Warm accent gradient overlay */}
+        <LinearGradient
+          colors={['rgba(212,184,150,0.08)', 'transparent', 'rgba(212,184,150,0.04)']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={StyleSheet.absoluteFill}
+        />
+
+        {/* Subtle diagonal lines pattern */}
+        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, overflow: 'hidden', opacity: 0.03 }}>
+          {[0, 1, 2, 3, 4, 5, 6].map((i) => (
             <View
               key={i}
               style={{
                 position: 'absolute',
-                bottom: i * 28,
-                right: i * 28,
-                width: 180 - i * 28,
-                height: 180 - i * 28,
-                borderRadius: (180 - i * 28) / 2,
-                borderWidth: 1,
-                borderColor: '#FFFFFF',
+                top: -40 + i * 36,
+                left: -20,
+                right: -20,
+                height: 1,
+                backgroundColor: '#D4B896',
+                transform: [{ rotate: '-35deg' }],
               }}
             />
           ))}
@@ -197,7 +199,7 @@ function BannerHeader({ topInset, scrollY }: { topInset: number; scrollY: Shared
             fontFamily: 'PlayfairDisplay_700Bold',
             fontSize: 11,
             letterSpacing: 3,
-            color: 'rgba(237, 237, 237, 0.45)',
+            color: 'rgba(212, 184, 150, 0.5)',
             textTransform: 'uppercase',
           }}>
             My Profile
@@ -210,13 +212,13 @@ function BannerHeader({ topInset, scrollY }: { topInset: number; scrollY: Shared
               height: 32,
               borderRadius: 16,
               borderWidth: 1,
-              borderColor: 'rgba(255,255,255,0.18)',
-              backgroundColor: 'rgba(255,255,255,0.08)',
+              borderColor: 'rgba(212,184,150,0.18)',
+              backgroundColor: 'rgba(212,184,150,0.06)',
               alignItems: 'center',
               justifyContent: 'center',
             })}
           >
-            <MoreHorizontal size={15} color="rgba(237,237,237,0.6)" strokeWidth={1.8} />
+            <MoreHorizontal size={15} color="rgba(212,184,150,0.5)" strokeWidth={1.8} />
           </Pressable>
         </Animated.View>
       </LinearGradient>
@@ -225,7 +227,7 @@ function BannerHeader({ topInset, scrollY }: { topInset: number; scrollY: Shared
 }
 
 // ─── Avatar ───────────────────────────────────────────────────────────────────
-function FloatingAvatar({ initials }: { initials: string }) {
+function FloatingAvatar({ initials, photoUri, onPickPhoto }: { initials: string; photoUri: string | null; onPickPhoto: () => void }) {
   const scale = useSharedValue(0.5);
   const opacity = useSharedValue(0);
 
@@ -245,44 +247,71 @@ function FloatingAvatar({ initials }: { initials: string }) {
       height: 84,
       borderRadius: 42,
     }, animStyle]}>
-      {/* Gradient shimmer ring */}
-      <LinearGradient
-        colors={['#D4B896', 'rgba(212,184,150,0.35)', '#D4B896']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={{
-          width: 84,
-          height: 84,
-          borderRadius: 42,
-          padding: 3,
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
+      <Pressable onPress={onPickPhoto}>
+        {/* Gradient shimmer ring */}
+        <LinearGradient
+          colors={['#D4B896', 'rgba(212,184,150,0.35)', '#D4B896']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={{
+            width: 84,
+            height: 84,
+            borderRadius: 42,
+            padding: 3,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <View style={{
+            width: 78,
+            height: 78,
+            borderRadius: 39,
+            backgroundColor: '#FFFFFF',
+            alignItems: 'center',
+            justifyContent: 'center',
+            overflow: 'hidden',
+          }}>
+            {photoUri ? (
+              <Image source={{ uri: photoUri }} style={{ width: 78, height: 78, borderRadius: 39 }} />
+            ) : (
+              <Text style={{
+                fontFamily: 'PlayfairDisplay_700Bold',
+                fontSize: 26,
+                color: '#1C1C1C',
+                letterSpacing: 1,
+              }}>
+                {initials}
+              </Text>
+            )}
+          </View>
+        </LinearGradient>
+
+        {/* Camera badge */}
         <View style={{
-          width: 78,
-          height: 78,
-          borderRadius: 39,
-          backgroundColor: '#1C1C1C',
+          position: 'absolute',
+          bottom: 0,
+          right: 0,
+          width: 26,
+          height: 26,
+          borderRadius: 13,
+          backgroundColor: '#0A0A0A',
+          borderWidth: 2,
+          borderColor: '#FFFFFF',
           alignItems: 'center',
           justifyContent: 'center',
         }}>
-          <Text style={{
-            fontFamily: 'PlayfairDisplay_700Bold',
-            fontSize: 26,
-            color: '#EDEDED',
-            letterSpacing: 1,
-          }}>
-            {initials}
-          </Text>
+          <Camera size={12} color="#EDEDED" strokeWidth={2} />
         </View>
-      </LinearGradient>
+      </Pressable>
     </Animated.View>
   );
 }
 
 // ─── User identity block ──────────────────────────────────────────────────────
-function UserIdentity({ interests }: { interests: string[] }) {
+function UserIdentity({ interests, photoUri, onPickPhoto }: { interests: string[]; photoUri: string | null; onPickPhoto: () => void }) {
+  const user = useAuthStore((s) => s.user);
+  const displayName = user?.displayName ?? user?.email?.split('@')[0] ?? 'V';
+  const initials = displayName.length > 0 ? displayName[0].toUpperCase() : 'V';
   const tagline = interests.length > 0
     ? interests.slice(0, 2).join(' & ')
     : 'Ravenscroft Member';
@@ -297,7 +326,7 @@ function UserIdentity({ interests }: { interests: string[] }) {
         marginTop: -42,
         marginBottom: 16,
       }}>
-        <FloatingAvatar initials="JD" />
+        <FloatingAvatar initials={initials} photoUri={photoUri} onPickPhoto={onPickPhoto} />
         <Animated.View entering={FadeInDown.delay(400).duration(400).springify()}>
           {/* Glass Edit Profile button */}
           <View style={profileStyles.editBtnShadow}>
@@ -330,7 +359,7 @@ function UserIdentity({ interests }: { interests: string[] }) {
           lineHeight: 36,
         }}
       >
-        John Doe.
+        {displayName}.
       </Animated.Text>
 
       {/* Tagline */}
@@ -772,92 +801,62 @@ function SettingSection({ title, rows, delay }: { title: string; rows: SettingRo
 // ─── Sign Out Button ──────────────────────────────────────────────────────────
 function SignOutButton({ onPress, disabled }: { onPress: () => void; disabled: boolean }) {
   const scale = useSharedValue(1);
-  const iconRotate = useSharedValue(0);
 
   const animStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
   }));
 
-  const iconStyle = useAnimatedStyle(() => ({
-    transform: [{ rotate: `${iconRotate.value}deg` }],
-  }));
-
   const handlePressIn = useCallback(() => {
-    scale.value = withSpring(0.96, { damping: 15, stiffness: 200 });
-    iconRotate.value = withSpring(-15, { damping: 12, stiffness: 180 });
+    scale.value = withSpring(0.97, { damping: 18, stiffness: 180 });
   }, []);
 
   const handlePressOut = useCallback(() => {
-    scale.value = withSpring(1, { damping: 12, stiffness: 150 });
-    iconRotate.value = withSpring(0, { damping: 12, stiffness: 150 });
+    scale.value = withSpring(1, { damping: 18, stiffness: 180 });
   }, []);
 
   const handlePress = useCallback(() => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     onPress();
   }, [onPress]);
 
   return (
     <Animated.View entering={FadeInDown.delay(1050).duration(400)}>
-      <View style={{
-        marginHorizontal: 24,
-        marginTop: 28,
-        marginBottom: 8,
-        borderRadius: 24,
-        overflow: 'hidden',
-        borderWidth: 1,
-        borderColor: 'rgba(220,100,100,0.3)',
-        ...Platform.select({
-          ios: {
-            shadowColor: '#B83025',
-            shadowOffset: { width: 0, height: 4 },
-            shadowOpacity: 0.1,
-            shadowRadius: 14,
+      <AnimatedPressable
+        onPress={handlePress}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+        disabled={disabled}
+        style={[
+          {
+            marginHorizontal: 24,
+            marginTop: 28,
+            marginBottom: 8,
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 8,
+            paddingVertical: 14,
+            borderRadius: 16,
+            borderWidth: StyleSheet.hairlineWidth,
+            borderColor: 'rgba(0,0,0,0.12)',
+            backgroundColor: 'rgba(0,0,0,0.03)',
+            opacity: disabled ? 0.5 : 1,
           },
-          android: { elevation: 4 },
-        }),
-      }}>
-        {Platform.OS === 'ios' && (
-          <BlurView
-            intensity={46}
-            tint="systemChromeMaterialLight"
-            style={StyleSheet.absoluteFill}
-          />
-        )}
-        <AnimatedPressable
-          onPress={handlePress}
-          onPressIn={handlePressIn}
-          onPressOut={handlePressOut}
-          disabled={disabled}
-          style={[
-            {
-              backgroundColor: 'rgba(255,235,235,0.72)',
-              borderRadius: 23,
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 10,
-              paddingVertical: 16,
-              opacity: disabled ? 0.5 : 1,
-            },
-            animStyle,
-          ]}
-          accessibilityRole="button"
-          accessibilityLabel="Sign out"
-        >
-          <Animated.View style={iconStyle}>
-            <LogOut size={16} color="#B83025" strokeWidth={1.8} />
-          </Animated.View>
-          <Text style={{
-            fontSize: 15,
-            fontWeight: '600',
-            color: '#B83025',
-            letterSpacing: 0.3,
-          }}>
-            Sign Out
-          </Text>
-        </AnimatedPressable>
-      </View>
+          animStyle,
+        ]}
+        accessibilityRole="button"
+        accessibilityLabel="Sign out"
+      >
+        <LogOut size={15} color="#6B6B6B" strokeWidth={1.5} />
+        <Text style={{
+          fontSize: 14,
+          fontWeight: '500',
+          color: '#6B6B6B',
+          letterSpacing: 0.2,
+        }}>
+          Sign Out
+        </Text>
+      </AnimatedPressable>
     </Animated.View>
   );
 }
@@ -870,6 +869,7 @@ export default function ProfileTab() {
   const { library } = useBooksStore();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [editInterestsVisible, setEditInterestsVisible] = useState(false);
+  const [profilePhoto, setProfilePhoto] = useState<string | null>(null);
   const scrollY = useSharedValue(0);
 
   const scrollHandler = useAnimatedScrollHandler({
@@ -877,6 +877,18 @@ export default function ProfileTab() {
       scrollY.value = event.contentOffset.y;
     },
   });
+
+  const handlePickPhoto = useCallback(async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+    if (!result.canceled && result.assets[0]) {
+      setProfilePhoto(result.assets[0].uri);
+    }
+  }, []);
 
   const handleLogOut = () => {
     Alert.alert(
@@ -912,7 +924,7 @@ export default function ProfileTab() {
       <BannerHeader topInset={insets.top} scrollY={scrollY} />
 
       {/* Identity: avatar (overlaps banner) + name + badge */}
-      <UserIdentity interests={selectedInterests} />
+      <UserIdentity interests={selectedInterests} photoUri={profilePhoto} onPickPhoto={handlePickPhoto} />
 
       {/* Stats glass card */}
       <StatsRow
@@ -971,8 +983,8 @@ const profileStyles = StyleSheet.create({
     borderRadius: 24,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.88)',
-    paddingHorizontal: 18,
-    paddingVertical: 8,
+    paddingHorizontal: 24,
+    paddingVertical: 11,
     backgroundColor: Platform.select({
       ios: 'transparent',
       android: 'rgba(255,255,255,0.72)',
