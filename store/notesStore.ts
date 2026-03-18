@@ -1,8 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { UserNote } from '@/types/book';
-
-const NOTES_KEY = 'ravenscroft_notes';
+import { STORAGE_KEYS } from '@/utils/storageKeys';
 
 interface NotesState {
   notes: Record<string, UserNote[]>; // keyed by bookId
@@ -19,7 +18,7 @@ export const useNotesStore = create<NotesState>((set, get) => ({
 
   hydrate: async () => {
     if (get().hydrated) return;
-    const raw = await AsyncStorage.getItem(NOTES_KEY);
+    const raw = await AsyncStorage.getItem(STORAGE_KEYS.notes);
     const notes: Record<string, UserNote[]> = raw ? JSON.parse(raw) : {};
     set({ notes, hydrated: true });
   },
@@ -35,14 +34,14 @@ export const useNotesStore = create<NotesState>((set, get) => ({
     const current = { ...get().notes };
     current[bookId] = [...(current[bookId] ?? []), note];
     set({ notes: current });
-    await AsyncStorage.setItem(NOTES_KEY, JSON.stringify(current));
+    await AsyncStorage.setItem(STORAGE_KEYS.notes, JSON.stringify(current));
   },
 
   deleteNote: async (bookId: string, noteId: string) => {
     const current = { ...get().notes };
     current[bookId] = (current[bookId] ?? []).filter((n) => n.id !== noteId);
     set({ notes: current });
-    await AsyncStorage.setItem(NOTES_KEY, JSON.stringify(current));
+    await AsyncStorage.setItem(STORAGE_KEYS.notes, JSON.stringify(current));
   },
 
   getNotesForBook: (bookId: string) => get().notes[bookId] ?? [],

@@ -2,8 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 
 import { AppearanceProfile } from '@/types/appearance';
-
-const APPEARANCE_KEY = 'ravenscroft_appearance';
+import { STORAGE_KEYS } from '@/utils/storageKeys';
 
 interface AppearanceState {
   profile: AppearanceProfile;
@@ -19,7 +18,7 @@ export const useAppearanceStore = create<AppearanceState>((set, get) => ({
 
   hydrate: async () => {
     if (get().hydrated) return;
-    const raw = await AsyncStorage.getItem(APPEARANCE_KEY);
+    const raw = await AsyncStorage.getItem(STORAGE_KEYS.appearance);
     const profile: AppearanceProfile = raw ? JSON.parse(raw) : {};
     set({ profile, hydrated: true });
   },
@@ -27,11 +26,11 @@ export const useAppearanceStore = create<AppearanceState>((set, get) => ({
   updateProfile: async (updates) => {
     const profile = { ...get().profile, ...updates };
     set({ profile });
-    await AsyncStorage.setItem(APPEARANCE_KEY, JSON.stringify(profile));
+    await AsyncStorage.setItem(STORAGE_KEYS.appearance, JSON.stringify(profile));
   },
 
   clearProfile: async () => {
     set({ profile: {} });
-    await AsyncStorage.removeItem(APPEARANCE_KEY);
+    await AsyncStorage.removeItem(STORAGE_KEYS.appearance);
   },
 }));

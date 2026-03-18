@@ -2,10 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import type { KindleClipping, KindleBook, ImportRecord } from '@/types/kindle';
 import { normalizeKindleKey } from '@/lib/kindleParser';
-
-const CLIPPINGS_KEY = 'ravenscroft_kindle_clippings';
-const BOOKS_KEY = 'ravenscroft_kindle_books';
-const IMPORTS_KEY = 'ravenscroft_kindle_imports';
+import { STORAGE_KEYS } from '@/utils/storageKeys';
 
 interface ImportResult {
   added: number;
@@ -36,9 +33,9 @@ interface KindleState {
 
 async function persist(state: KindleState) {
   await AsyncStorage.multiSet([
-    [CLIPPINGS_KEY, JSON.stringify(state.clippings)],
-    [BOOKS_KEY, JSON.stringify(state.books)],
-    [IMPORTS_KEY, JSON.stringify(state.imports)],
+    [STORAGE_KEYS.kindleClippings, JSON.stringify(state.clippings)],
+    [STORAGE_KEYS.kindleBooks, JSON.stringify(state.books)],
+    [STORAGE_KEYS.kindleImports, JSON.stringify(state.imports)],
   ]);
 }
 
@@ -51,7 +48,7 @@ export const useKindleStore = create<KindleState>((set, get) => ({
   hydrate: async () => {
     if (get().hydrated) return;
     const [[, rawClippings], [, rawBooks], [, rawImports]] =
-      await AsyncStorage.multiGet([CLIPPINGS_KEY, BOOKS_KEY, IMPORTS_KEY]);
+      await AsyncStorage.multiGet([STORAGE_KEYS.kindleClippings, STORAGE_KEYS.kindleBooks, STORAGE_KEYS.kindleImports]);
 
     set({
       clippings: rawClippings ? JSON.parse(rawClippings) : {},
@@ -125,7 +122,7 @@ export const useKindleStore = create<KindleState>((set, get) => ({
       b.kindleKey === kindleKey ? { ...b, matchedBookId: bookId } : b,
     );
     set({ books });
-    await AsyncStorage.setItem(BOOKS_KEY, JSON.stringify(books));
+    await AsyncStorage.setItem(STORAGE_KEYS.kindleBooks, JSON.stringify(books));
   },
 
   clearBookMatch: async (kindleKey) => {
@@ -135,7 +132,7 @@ export const useKindleStore = create<KindleState>((set, get) => ({
         : b,
     );
     set({ books });
-    await AsyncStorage.setItem(BOOKS_KEY, JSON.stringify(books));
+    await AsyncStorage.setItem(STORAGE_KEYS.kindleBooks, JSON.stringify(books));
   },
 
   getClippingsForBook: (kindleKey) => get().clippings[kindleKey] ?? [],
@@ -157,6 +154,10 @@ export const useKindleStore = create<KindleState>((set, get) => ({
 
   clearAllKindleData: async () => {
     set({ clippings: {}, books: [], imports: [] });
-    await AsyncStorage.multiRemove([CLIPPINGS_KEY, BOOKS_KEY, IMPORTS_KEY]);
+    await AsyncStorage.multiRemove([
+      STORAGE_KEYS.kindleClippings,
+      STORAGE_KEYS.kindleBooks,
+      STORAGE_KEYS.kindleImports,
+    ]);
   },
 }));

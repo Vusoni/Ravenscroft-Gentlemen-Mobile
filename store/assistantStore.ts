@@ -1,7 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
-
-const ASSISTANT_KEY = 'ravenscroft_assistant_chat';
+import { STORAGE_KEYS } from '@/utils/storageKeys';
 const MAX_MESSAGES = 100;
 
 export interface AssistantMessage {
@@ -25,7 +24,7 @@ export const useAssistantStore = create<AssistantState>((set, get) => ({
 
   hydrate: async () => {
     if (get().hydrated) return;
-    const raw = await AsyncStorage.getItem(ASSISTANT_KEY);
+    const raw = await AsyncStorage.getItem(STORAGE_KEYS.assistantChat);
     const messages: AssistantMessage[] = raw ? JSON.parse(raw) : [];
     set({ messages, hydrated: true });
   },
@@ -42,12 +41,12 @@ export const useAssistantStore = create<AssistantState>((set, get) => ({
       msgs = msgs.slice(msgs.length - MAX_MESSAGES);
     }
     set({ messages: msgs });
-    await AsyncStorage.setItem(ASSISTANT_KEY, JSON.stringify(msgs));
+    await AsyncStorage.setItem(STORAGE_KEYS.assistantChat, JSON.stringify(msgs));
     return message;
   },
 
   clearChat: async () => {
     set({ messages: [] });
-    await AsyncStorage.removeItem(ASSISTANT_KEY);
+    await AsyncStorage.removeItem(STORAGE_KEYS.assistantChat);
   },
 }));

@@ -1,24 +1,14 @@
 // app/(home)/(tabs)/books.tsx — Books library with search, trending discover, and For You shelf
+import { GlassBlur } from '@/components/GlassBlur';
 import { TAB_BAR_BOTTOM_OFFSET } from '@/components/GlassTabBar';
+import { BookCard, CARD_GAP, CARD_H_PAD } from '@/components/books/BookCard';
+import { SearchDots } from '@/components/books/SearchDots';
+import { ActiveTab, useOpenLibrarySearch } from '@/hooks/useOpenLibrarySearch';
 import { useBooksStore } from '@/store/booksStore';
-import { useOnboardingStore } from '@/store/onboardingStore';
-import { Book } from '@/types/book';
-import { BlurView } from 'expo-blur';
-import { router } from 'expo-router';
-import {
-  BookMarked,
-  BookOpen,
-  Search,
-  Sparkles,
-  TrendingUp,
-  X,
-} from 'lucide-react-native';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { BookOpen, Search, Sparkles, TrendingUp, X } from 'lucide-react-native';
 import {
   ActivityIndicator,
-  Dimensions,
   FlatList,
-  Image,
   Platform,
   Pressable,
   StyleSheet,
@@ -29,413 +19,47 @@ import {
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
-  withRepeat,
-  withSequence,
   withSpring,
   withTiming,
 } from 'react-native-reanimated';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
-const { width: SCREEN_W } = Dimensions.get('window');
-const CARD_GAP = 12;
-const CARD_H_PAD = 20;
-const CARD_W = (SCREEN_W - CARD_H_PAD * 2 - CARD_GAP) / 2;
-const COVER_H = CARD_W * 1.5;
-const COVER_H_LIBRARY = CARD_W * 1.65;
-
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
-// ─── Curated fallback ─────────────────────────────────────────────────────────
-const CURATED_FALLBACK: Book[] = [
-  { id: 'OL45804W',   title: 'Meditations',                  author: 'Marcus Aurelius',     genre: 'Philosophy',  pageCount: 254,  coverUrl: 'https://covers.openlibrary.org/b/isbn/9780140449334-L.jpg' },
-  { id: 'OL66768W',   title: 'The Old Man and the Sea',       author: 'Ernest Hemingway',    genre: 'Literature',  pageCount: 127,  coverUrl: 'https://covers.openlibrary.org/b/isbn/9780684801223-L.jpg' },
-  { id: 'OL18098W',   title: "Man's Search for Meaning",      author: 'Viktor Frankl',       genre: 'Psychology',  pageCount: 165,  coverUrl: 'https://covers.openlibrary.org/b/isbn/9780807014271-L.jpg' },
-  { id: 'OL468431W',  title: 'The Great Gatsby',              author: 'F. Scott Fitzgerald', genre: 'Fiction',     pageCount: 180,  coverUrl: 'https://covers.openlibrary.org/b/isbn/9780743273565-L.jpg' },
-  { id: 'OL15404W',   title: 'Letters from a Stoic',          author: 'Seneca',              genre: 'Philosophy',  pageCount: 256,  coverUrl: 'https://covers.openlibrary.org/b/isbn/9780140442106-L.jpg' },
-  { id: 'OL49236W',   title: 'The Picture of Dorian Gray',    author: 'Oscar Wilde',         genre: 'Fiction',     pageCount: 254,  coverUrl: 'https://covers.openlibrary.org/b/isbn/9780141439570-L.jpg' },
-  { id: 'OL8098828W', title: 'Crime and Punishment',          author: 'Fyodor Dostoevsky',   genre: 'Fiction',     pageCount: 671,  coverUrl: 'https://covers.openlibrary.org/b/isbn/9780140449136-L.jpg' },
-  { id: 'OL57553W',   title: 'Thus Spoke Zarathustra',        author: 'Friedrich Nietzsche', genre: 'Philosophy',  pageCount: 336,  coverUrl: 'https://covers.openlibrary.org/b/isbn/9780140441185-L.jpg' },
-  { id: 'OL71490W',   title: 'Walden',                        author: 'Henry David Thoreau', genre: 'Essays',      pageCount: 224,  coverUrl: 'https://covers.openlibrary.org/b/isbn/9780451531445-L.jpg' },
-  { id: 'OL35233W',   title: 'The Count of Monte Cristo',     author: 'Alexandre Dumas',     genre: 'Fiction',     pageCount: 1276, coverUrl: 'https://covers.openlibrary.org/b/isbn/9780140449266-L.jpg' },
-  { id: 'OL15403W',   title: 'On the Shortness of Life',      author: 'Seneca',              genre: 'Philosophy',  pageCount: 97,   coverUrl: 'https://covers.openlibrary.org/b/isbn/9780143036326-L.jpg' },
-  { id: 'OL22025W',   title: 'The Art of War',                author: 'Sun Tzu',             genre: 'Strategy',    pageCount: 112,  coverUrl: 'https://covers.openlibrary.org/b/isbn/9781590302255-L.jpg' },
-];
-
-// ─── Interest → query map ─────────────────────────────────────────────────────
-const INTEREST_QUERIES: Record<string, string> = {
-  'Exercise':         'fitness health high performance athlete',
-  'Literature':       'classic literature fiction masterpiece timeless',
-  'Stoicism':         'stoicism philosophy ancient wisdom marcus aurelius',
-  'Journaling':       'journaling self reflection introspection writing',
-  'Travel & Culture': 'travel culture world discovery civilization',
-  'Music':            'music history culture theory composition',
-  'Theatre & Cinema': 'cinema film arts theatre screenplay',
-  'Morning Rituals':  'morning routine discipline habits excellence',
-};
-
-// ─── Open Library trending API ────────────────────────────────────────────────
-type OLWork = {
-  key?: string;
-  title: string;
-  author_name?: string[];
-  cover_i?: number;
-  number_of_pages_median?: number;
-  subject?: string[];
-};
-
-type OLSearchResponse = {
-  numFound: number;
-  start: number;
-  docs: OLWork[];
-};
-
-async function fetchTrendingBooks(): Promise<Book[]> {
-  const res = await fetch(
-    'https://openlibrary.org/trending/yearly.json?limit=24',
-    { signal: AbortSignal.timeout(8000) },
-  );
-  if (!res.ok) throw new Error(`OL ${res.status}`);
-  const data = await res.json();
-  const works: OLWork[] = data.works ?? [];
-  return works
-    .filter((w) => w.cover_i && w.key)
-    .map((w) => ({
-      id: w.key!.replace('/works/', ''),
-      title: w.title,
-      author: w.author_name?.[0] ?? 'Unknown',
-      coverUrl: `https://covers.openlibrary.org/b/id/${w.cover_i}-L.jpg`,
-      pageCount: w.number_of_pages_median,
-      genre: w.subject?.[0],
-    }));
-}
-
-// ─── Open Library search (same API as trending — no key needed) ───────────────
-async function searchOpenLibrary(
-  query: string,
-  offset: number = 0,
-  signal?: AbortSignal,
-): Promise<{ books: Book[]; total: number }> {
-  const res = await fetch(
-    `https://openlibrary.org/search.json?q=${encodeURIComponent(query)}&limit=20&offset=${offset}`,
-    { signal: signal ?? AbortSignal.timeout(8000) },
-  );
-  if (!res.ok) throw new Error(`OL ${res.status}`);
-  const data: OLSearchResponse = await res.json();
-  const docs: OLWork[] = data.docs ?? [];
-  const books = docs
-    .filter((d) => d.cover_i && d.title && d.key)
-    .map((d) => ({
-      id: d.key!.replace('/works/', ''),
-      title: d.title,
-      author: d.author_name?.[0] ?? 'Unknown',
-      coverUrl: `https://covers.openlibrary.org/b/id/${d.cover_i}-L.jpg`,
-      pageCount: d.number_of_pages_median,
-      genre: d.subject?.[0],
-    }));
-  return { books, total: data.numFound ?? 0 };
-}
-
-async function fetchForYouBooks(interests: string[]): Promise<Book[]> {
-  const queries = interests.slice(0, 4).map((i) => INTEREST_QUERIES[i]).filter(Boolean);
-  const results = await Promise.allSettled(queries.map((q) => searchOpenLibrary(q)));
-  const seen = new Set<string>();
-  const books: Book[] = [];
-  for (const result of results) {
-    if (result.status === 'fulfilled') {
-      for (const book of result.value.books.slice(0, 5)) {
-        if (!seen.has(book.id) && book.coverUrl) {
-          seen.add(book.id);
-          books.push(book);
-        }
-      }
-    }
-  }
-  return books;
-}
-
-// ─── Relative date ────────────────────────────────────────────────────────────
-function getRelativeDate(iso: string): string {
-  const diff = Date.now() - new Date(iso).getTime();
-  const days = Math.floor(diff / 86400000);
-  if (days === 0) return 'today';
-  if (days === 1) return 'yesterday';
-  if (days < 30) return `${days} days ago`;
-  return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
-}
-
-// ─── Cover colour ─────────────────────────────────────────────────────────────
-const COVER_COLORS = ['#1C1C1C', '#2C2C2C', '#3B2F2F', '#2B3A2B', '#2B2B3A', '#3A2B38', '#3A352B'];
-function coverColor(id: string): string {
-  let n = 0;
-  for (let i = 0; i < id.length; i++) n += id.charCodeAt(i);
-  return COVER_COLORS[n % COVER_COLORS.length];
-}
-
-// ─── Search dot (single animated dot) ────────────────────────────────────────
-function SearchDot({ delay }: { delay: number }) {
-  const opacity = useSharedValue(0.2);
-  useEffect(() => {
-    setTimeout(() => {
-      opacity.value = withRepeat(
-        withSequence(withTiming(1, { duration: 480 }), withTiming(0.2, { duration: 480 })),
-        -1,
-        false,
-      );
-    }, delay);
-  }, [delay, opacity]);
-  const s = useAnimatedStyle(() => ({ opacity: opacity.value }));
-  return <Animated.View style={[s, { width: 5, height: 5, borderRadius: 2.5, backgroundColor: '#ABABAB' }]} />;
-}
-
-function SearchDots() {
-  return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-      <SearchDot delay={0} />
-      <SearchDot delay={190} />
-      <SearchDot delay={380} />
-    </View>
-  );
-}
-
-// ─── BookCard ─────────────────────────────────────────────────────────────────
-function BookCard({
-  book,
-  inLibrary,
-  isLibraryView = false,
-}: {
-  book: Book;
-  inLibrary: boolean;
-  isLibraryView?: boolean;
-}) {
-  const scale = useSharedValue(1);
-  const animStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
-  const coverH = isLibraryView ? COVER_H_LIBRARY : COVER_H;
-
-  return (
-    <AnimatedPressable
-      style={[animStyle, { width: CARD_W }]}
-      onPressIn={() => { scale.value = withSpring(0.96, { damping: 14 }); }}
-      onPressOut={() => { scale.value = withSpring(1, { damping: 14 }); }}
-      onPress={() =>
-        router.push({ pathname: '/(home)/book-detail', params: { book: JSON.stringify(book) } })
-      }
-      accessibilityRole="button"
-      accessibilityLabel={`${book.title} by ${book.author}`}
-    >
-      {/* Cover */}
-      <View style={{ width: CARD_W, height: coverH, borderRadius: 14, overflow: 'hidden', backgroundColor: coverColor(book.id) }}>
-        {book.coverUrl ? (
-          <Image source={{ uri: book.coverUrl }} style={{ width: CARD_W, height: coverH }} resizeMode="cover" />
-        ) : (
-          <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-            <Text style={{ fontFamily: 'PlayfairDisplay_700Bold', fontSize: 36, color: 'rgba(255,255,255,0.20)' }}>
-              {book.title[0]}
-            </Text>
-          </View>
-        )}
-
-        {/* Library badge — in-use everywhere except library view itself */}
-        {inLibrary && !isLibraryView && (
-          <View style={{ position: 'absolute', top: 8, right: 8, backgroundColor: '#0A0A0A', borderRadius: 12, width: 24, height: 24, alignItems: 'center', justifyContent: 'center' }}>
-            <BookMarked size={12} color="#EDEDED" strokeWidth={2} />
-          </View>
-        )}
-
-        {/* Library view — bottom gradient author strip */}
-        {isLibraryView && (
-          <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, paddingHorizontal: 8, paddingBottom: 7, paddingTop: 14, backgroundColor: 'rgba(10,10,10,0.5)' }}>
-            <Text style={{ fontFamily: 'PlayfairDisplay_400Regular_Italic', fontSize: 9, color: 'rgba(237,237,237,0.7)', letterSpacing: 0.3 }} numberOfLines={1}>
-              {book.author}
-            </Text>
-          </View>
-        )}
-      </View>
-
-      {/* Meta */}
-      <View style={{ marginTop: 8, gap: 2 }}>
-        <Text numberOfLines={2} style={{ fontFamily: 'PlayfairDisplay_700Bold', fontSize: 13, color: '#0A0A0A', lineHeight: 18 }}>
-          {book.title}
-        </Text>
-        {!isLibraryView && (
-          <Text numberOfLines={1} style={{ fontSize: 11, fontStyle: 'italic', color: '#6B6B6B' }}>
-            {book.author}
-          </Text>
-        )}
-        {isLibraryView && book.addedAt && (
-          <Text style={{ fontFamily: 'PlayfairDisplay_400Regular', fontSize: 10, color: '#ABABAB', letterSpacing: 0.2 }}>
-            Added {getRelativeDate(book.addedAt)}
-          </Text>
-        )}
-      </View>
-    </AnimatedPressable>
-  );
-}
-
 // ─── Main screen ──────────────────────────────────────────────────────────────
-type ActiveTab = 'library' | 'discover' | 'foryou';
-
 export default function BooksTab() {
   const insets = useSafeAreaInsets();
-  const { library, hydrate, isInLibrary } = useBooksStore();
-  const { selectedInterests, checkOnboardingStatus } = useOnboardingStore();
+  const { isInLibrary } = useBooksStore();
+  const {
+    library,
+    selectedInterests,
+    activeTab,
+    setActiveTab,
+    searchOpen,
+    toggleSearch,
+    query,
+    handleQueryChange,
+    searching,
+    searchError,
+    loadingMore,
+    handleLoadMore,
+    trendingLoading,
+    forYouLoading,
+    showingSearch,
+    hasMore,
+    displayData,
+  } = useOpenLibrarySearch();
 
-  const [activeTab, setActiveTab] = useState<ActiveTab>('discover');
-  const [searchOpen, setSearchOpen] = useState(false);
-  const [query, setQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<Book[]>([]);
-  const [searching, setSearching] = useState(false);
-  const [searchError, setSearchError] = useState(false);
-  const [searchOffset, setSearchOffset] = useState(0);
-  const [searchTotal, setSearchTotal] = useState(0);
-  const [loadingMore, setLoadingMore] = useState(false);
-
-  const [trendingBooks, setTrendingBooks] = useState<Book[]>(CURATED_FALLBACK);
-  const [trendingLoading, setTrendingLoading] = useState(true);
-  const trendingFetched = useRef(false);
-
-  const [forYouBooks, setForYouBooks] = useState<Book[]>([]);
-  const [forYouLoading, setForYouLoading] = useState(false);
-  const forYouFetched = useRef(false);
-
+  // Animation state (screen-only)
   const searchH = useSharedValue(0);
   const searchStyle = useAnimatedStyle(() => ({ height: searchH.value, overflow: 'hidden' }));
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const abortRef = useRef<AbortController | null>(null);
   const loadMoreScale = useSharedValue(1);
   const loadMoreStyle = useAnimatedStyle(() => ({ transform: [{ scale: loadMoreScale.value }] }));
 
-  useEffect(() => () => {
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    abortRef.current?.abort();
-  }, []);
-
-  useEffect(() => {
-    hydrate();
-    if (selectedInterests.length === 0) {
-      checkOnboardingStatus();
-    }
-    if (!trendingFetched.current) {
-      trendingFetched.current = true;
-      fetchTrendingBooks()
-        .then((books) => { if (books.length > 0) setTrendingBooks(books); })
-        .catch(() => {})
-        .finally(() => setTrendingLoading(false));
-    }
-  }, [hydrate]);
-
-  // Reset For You cache when interests change
-  const prevInterestsKey = useRef('');
-  useEffect(() => {
-    const key = selectedInterests.slice().sort().join(',');
-    if (key !== prevInterestsKey.current) {
-      prevInterestsKey.current = key;
-      forYouFetched.current = false;
-    }
-  }, [selectedInterests]);
-
-  // Lazy-load For You on first visit or after interests change
-  useEffect(() => {
-    if (activeTab === 'foryou' && !forYouFetched.current && selectedInterests.length > 0) {
-      forYouFetched.current = true;
-      setForYouLoading(true);
-      fetchForYouBooks(selectedInterests)
-        .then(setForYouBooks)
-        .catch(() => {})
-        .finally(() => setForYouLoading(false));
-    }
-  }, [activeTab, selectedInterests]);
-
-  const toggleSearch = () => {
-    const open = !searchOpen;
-    setSearchOpen(open);
-    searchH.value = withTiming(open ? 52 : 0, { duration: 220 });
-    if (!open) {
-      abortRef.current?.abort();
-      setQuery('');
-      setSearchResults([]);
-      setSearchError(false);
-      setSearchOffset(0);
-      setSearchTotal(0);
-    }
+  const handleToggleSearch = () => {
+    searchH.value = withTiming(!searchOpen ? 52 : 0, { duration: 220 });
+    toggleSearch();
   };
-
-  const handleQueryChange = (text: string) => {
-    setQuery(text);
-    setSearchError(false);
-    abortRef.current?.abort();
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    if (!text.trim()) {
-      setSearchResults([]);
-      setSearchOffset(0);
-      setSearchTotal(0);
-      return;
-    }
-    debounceRef.current = setTimeout(async () => {
-      const controller = new AbortController();
-      abortRef.current = controller;
-      setSearching(true);
-      setSearchError(false);
-      setSearchOffset(0);
-      setSearchTotal(0);
-      setSearchResults([]);
-      try {
-        const { books, total } = await searchOpenLibrary(text, 0, controller.signal);
-        if (!controller.signal.aborted) {
-          setSearchResults(books);
-          setSearchTotal(total);
-        }
-      } catch {
-        if (!controller.signal.aborted) {
-          setSearchResults([]);
-          setSearchError(true);
-        }
-      } finally {
-        if (!controller.signal.aborted) setSearching(false);
-      }
-    }, 400);
-  };
-
-  const handleLoadMore = async () => {
-    if (loadingMore || searching) return;
-    const nextOffset = searchOffset + 20;
-    if (nextOffset >= searchTotal) return;
-    abortRef.current?.abort();
-    const controller = new AbortController();
-    abortRef.current = controller;
-    setLoadingMore(true);
-    try {
-      const { books, total } = await searchOpenLibrary(query, nextOffset, controller.signal);
-      if (!controller.signal.aborted) {
-        const existingIds = new Set(searchResults.map((b) => b.id));
-        const fresh = books.filter((b) => !existingIds.has(b.id));
-        setSearchResults((prev) => [...prev, ...fresh]);
-        setSearchOffset(nextOffset);
-        setSearchTotal(total);
-      }
-    } catch {
-      // silent — user retains existing results
-    } finally {
-      if (!controller.signal.aborted) setLoadingMore(false);
-    }
-  };
-
-  const filteredLibrary = useMemo(() => {
-    if (!query.trim()) return library;
-    const lower = query.toLowerCase().trim();
-    return library.filter(
-      (b) => b.title.toLowerCase().includes(lower) || b.author.toLowerCase().includes(lower),
-    );
-  }, [library, query]);
-
-  const showingSearch = searchOpen && query.trim().length > 0;
-  const hasMore = showingSearch && activeTab !== 'library' && searchOffset + 20 < searchTotal;
-  const displayData = showingSearch
-    ? (activeTab === 'library' ? filteredLibrary : searchResults)
-    : activeTab === 'library'
-      ? library
-      : activeTab === 'foryou'
-        ? forYouBooks
-        : trendingBooks;
 
   const renderEmpty = () => {
     if (showingSearch && searching) return null;
@@ -522,7 +146,7 @@ export default function BooksTab() {
         <Text style={{ fontFamily: 'PlayfairDisplay_700Bold', fontSize: 24, color: '#0A0A0A' }}>
           Library
         </Text>
-        <Pressable onPress={toggleSearch} hitSlop={12} accessibilityRole="button" accessibilityLabel={searchOpen ? 'Close search' : 'Search books'}>
+        <Pressable onPress={handleToggleSearch} hitSlop={12} accessibilityRole="button" accessibilityLabel={searchOpen ? 'Close search' : 'Search books'}>
           {searchOpen
             ? <X size={20} color="#6B6B6B" strokeWidth={1.5} />
             : <Search size={20} color="#6B6B6B" strokeWidth={1.5} />}
@@ -533,9 +157,7 @@ export default function BooksTab() {
       <Animated.View style={[searchStyle, { paddingHorizontal: 20 }]}>
         <View style={booksStyles.searchBarShadow}>
           <View style={booksStyles.searchBar}>
-            {Platform.OS === 'ios' && (
-              <BlurView intensity={52} tint="systemChromeMaterialLight" style={StyleSheet.absoluteFill} />
-            )}
+            <GlassBlur intensity={52} />
             <View style={[StyleSheet.absoluteFill, booksStyles.searchBarFill]} pointerEvents="none" />
             <Search size={14} color="#6B6B6B" strokeWidth={1.5} />
             <TextInput
@@ -557,9 +179,7 @@ export default function BooksTab() {
       {/* Tabs — unified glassmorphic segmented control */}
       <View style={{ paddingHorizontal: 20, paddingTop: 12, paddingBottom: 8 }}>
         <View style={booksStyles.segmentContainer}>
-          {Platform.OS === 'ios' && (
-            <BlurView intensity={56} tint="systemUltraThinMaterialLight" style={StyleSheet.absoluteFill} />
-          )}
+          <GlassBlur intensity={56} />
           <View style={[StyleSheet.absoluteFill, booksStyles.segmentFill]} pointerEvents="none" />
           {TAB_LABELS.map(({ id, label }) => {
             const active = activeTab === id;

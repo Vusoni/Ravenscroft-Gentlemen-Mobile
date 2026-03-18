@@ -1,7 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
-
-const CHATS_KEY = 'ravenscroft_chats';
+import { STORAGE_KEYS } from '@/utils/storageKeys';
 const MAX_MESSAGES_PER_BOOK = 100;
 
 export interface ChatMessage {
@@ -26,7 +25,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
   hydrate: async () => {
     if (get().hydrated) return;
-    const raw = await AsyncStorage.getItem(CHATS_KEY);
+    const raw = await AsyncStorage.getItem(STORAGE_KEYS.chats);
     const chats: Record<string, ChatMessage[]> = raw ? JSON.parse(raw) : {};
     set({ chats, hydrated: true });
   },
@@ -46,7 +45,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }
     current[bookId] = msgs;
     set({ chats: current });
-    await AsyncStorage.setItem(CHATS_KEY, JSON.stringify(current));
+    await AsyncStorage.setItem(STORAGE_KEYS.chats, JSON.stringify(current));
     return message;
   },
 
@@ -54,7 +53,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const current = { ...get().chats };
     delete current[bookId];
     set({ chats: current });
-    await AsyncStorage.setItem(CHATS_KEY, JSON.stringify(current));
+    await AsyncStorage.setItem(STORAGE_KEYS.chats, JSON.stringify(current));
   },
 
   getMessages: (bookId) => get().chats[bookId] ?? [],
