@@ -2,11 +2,11 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { TAB_BAR_BOTTOM_OFFSET } from '@/components/GlassTabBar';
 import { ARTICLE_CATEGORIES, ARTICLES, Article, ArticleCategory } from '@/constants/articles';
-import { BlurView } from 'expo-blur';
 import { router } from 'expo-router';
-import { ArrowRight, BookOpen } from 'lucide-react-native';
+import { ArrowUpRight, BookOpen } from 'lucide-react-native';
 import { type ReactNode, useEffect, useMemo, useState } from 'react';
 import {
+  Image,
   Modal,
   Platform,
   Pressable,
@@ -32,8 +32,8 @@ function PressCard({ onPress, children }: { onPress: () => void; children: React
   return (
     <AnimatedPressable
       style={animStyle}
-      onPressIn={() => { scale.value = withSpring(0.97, { damping: 15 }); }}
-      onPressOut={() => { scale.value = withSpring(1, { damping: 15 }); }}
+      onPressIn={() => { scale.value = withSpring(0.97, { damping: 18, stiffness: 180 }); }}
+      onPressOut={() => { scale.value = withSpring(1, { damping: 18, stiffness: 180 }); }}
       onPress={onPress}
     >
       {children}
@@ -152,11 +152,7 @@ const modalStyles = StyleSheet.create({
 });
 
 // ─── Category chip ────────────────────────────────────────────────────────────
-function CategoryChip({
-  label,
-  active,
-  onPress,
-}: {
+function CategoryChip({ label, active, onPress }: {
   label: string;
   active: boolean;
   onPress: () => void;
@@ -173,30 +169,25 @@ function CategoryChip({
   );
 }
 
-// ─── Article row card ─────────────────────────────────────────────────────────
-function ArticleRow({
-  article,
-  index,
-  isLast,
-  onPress,
-}: {
+// ─── Article card ─────────────────────────────────────────────────────────────
+function ArticleCard({ article, index, onPress }: {
   article: Article;
   index: number;
-  isLast: boolean;
   onPress: () => void;
 }) {
   return (
-    <Animated.View entering={FadeInDown.delay(60 * index).duration(350)}>
+    <Animated.View entering={FadeInDown.delay(80 * index).duration(400)}>
       <PressCard onPress={onPress}>
-        <View style={[styles.articleRow, isLast && styles.articleRowLast]}>
-          <View style={styles.articleRowContent}>
-            <Text style={styles.articleRowCategory}>{article.category}</Text>
-            <Text style={styles.articleRowTitle} numberOfLines={2}>{article.title}</Text>
-            <Text style={styles.articleRowMeta}>{article.date} · {article.readTime}</Text>
-          </View>
-          {/* Thumbnail placeholder */}
-          <View style={styles.articleRowThumb}>
-            <Text style={styles.articleThumbLetter}>{article.category[0]}</Text>
+        <View style={styles.card}>
+          <Image source={{ uri: article.image }} style={styles.cardImage} resizeMode="cover" />
+          <View style={styles.cardBody}>
+            <Text style={styles.cardMeta}>{article.date} · {article.readTime}</Text>
+            <Text style={styles.cardTitle} numberOfLines={2}>{article.title}</Text>
+            <Text style={styles.cardExcerpt} numberOfLines={3}>{article.excerpt}</Text>
+            <View style={styles.cardCtaRow}>
+              <Text style={styles.cardCtaText}>View more</Text>
+              <ArrowUpRight size={12} color="#0A0A0A" strokeWidth={1.5} />
+            </View>
           </View>
         </View>
       </PressCard>
@@ -231,16 +222,13 @@ export default function ArticlesTab() {
     router.push({ pathname: '/(home)/article', params: { id: article.id } });
   };
 
-  const featured = ARTICLES[0];
-
-  const editorial = useMemo(() => {
-    const rest = ARTICLES.slice(1);
-    if (activeCategory === 'All') return rest;
-    return rest.filter((a) => a.category === activeCategory);
+  const filteredArticles = useMemo(() => {
+    if (activeCategory === 'All') return ARTICLES;
+    return ARTICLES.filter((a) => a.category === activeCategory);
   }, [activeCategory]);
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#FFFFFF' }} edges={['top']}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#EDEDED' }} edges={['top']}>
       <WelcomeModal visible={showWelcome} onOpenGuide={openGuide} onDismiss={dismissWelcome} />
 
       <ScrollView
@@ -248,44 +236,17 @@ export default function ArticlesTab() {
         contentContainerStyle={{ paddingBottom: TAB_BAR_BOTTOM_OFFSET + insets.bottom + 8 }}
         showsVerticalScrollIndicator={false}
       >
-        {/* ── Top bar ───────────────────────────── */}
-        <View style={styles.topBar}>
-          <Text style={styles.topBarTitle}>Ravenscroft</Text>
-          <View style={styles.avatarPillShadow}>
-            <View style={styles.avatarPill}>
-              {Platform.OS === 'ios' && (
-                <BlurView intensity={50} tint="systemChromeMaterialLight" style={StyleSheet.absoluteFill} />
-              )}
-              <View style={[StyleSheet.absoluteFill, styles.avatarPillFill]} pointerEvents="none" />
-              <Text style={styles.avatarPillText}>R</Text>
-            </View>
-          </View>
+        {/* ── Page header ───────────────────────── */}
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>Articles</Text>
+          <Text style={styles.headerSubtitle}>Stay updated with our newest articles and ideas.</Text>
         </View>
-
-        {/* ── Featured card ─────────────────────── */}
-        <PressCard onPress={() => navigate(featured)}>
-          <View style={styles.feedCard}>
-            <View style={styles.feedImageArea}>
-              <Text style={styles.feedCategoryBadge}>{featured.category}</Text>
-            </View>
-            <View style={styles.feedBody}>
-              <Text style={styles.feedMeta}>ravenscroft · {featured.date} · {featured.readTime}</Text>
-              <Text style={styles.feedTitle}>{featured.title}</Text>
-              <Text style={styles.feedExcerpt} numberOfLines={2}>{featured.excerpt}</Text>
-              <View style={styles.readMoreRow}>
-                <Text style={styles.readMoreText}>Read article</Text>
-                <ArrowRight size={12} color="rgba(237,237,237,0.7)" />
-              </View>
-            </View>
-          </View>
-        </PressCard>
 
         {/* ── Category chips ────────────────────── */}
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.categoryChips}
-          style={styles.categoryChipsWrap}
         >
           <CategoryChip
             label="All"
@@ -302,20 +263,14 @@ export default function ArticlesTab() {
           ))}
         </ScrollView>
 
-        {/* ── Editorial section ─────────────────── */}
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionLabel}>Editorial</Text>
-          <View style={styles.sectionDivider} />
-        </View>
-
+        {/* ── Article cards ─────────────────────── */}
         <View style={styles.articleList}>
-          {editorial.length > 0 ? (
-            editorial.map((article, index) => (
-              <ArticleRow
+          {filteredArticles.length > 0 ? (
+            filteredArticles.map((article, index) => (
+              <ArticleCard
                 key={article.id}
                 article={article}
                 index={index}
-                isLast={index === editorial.length - 1}
                 onPress={() => navigate(article)}
               />
             ))
@@ -331,95 +286,36 @@ export default function ArticlesTab() {
 }
 
 const styles = StyleSheet.create({
-  topBar: {
-    flexDirection: 'row',
+  // Page header
+  header: {
     alignItems: 'center',
-    justifyContent: 'space-between',
     paddingHorizontal: 24,
-    paddingTop: 16,
-    paddingBottom: 20,
+    paddingTop: 28,
+    paddingBottom: 22,
   },
-  topBarTitle: {
+  headerTitle: {
     fontFamily: 'PlayfairDisplay_700Bold',
-    fontSize: 24,
+    fontSize: 30,
     color: '#0A0A0A',
+    letterSpacing: -0.5,
+    marginBottom: 6,
   },
-  avatarPillShadow: {
-    borderRadius: 16,
-    ...Platform.select({
-      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.09, shadowRadius: 10 },
-      android: { elevation: 5 },
-    }),
-  },
-  avatarPill: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.88)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: Platform.select({ ios: 'transparent', android: 'rgba(255,255,255,0.68)' }),
-  },
-  avatarPillFill: { backgroundColor: 'rgba(255,255,255,0.65)', borderRadius: 17 },
-  avatarPillText: { fontFamily: 'PlayfairDisplay_700Bold', fontSize: 13, color: '#0A0A0A' },
-
-  // Featured card
-  feedCard: {
-    marginHorizontal: 20,
-    marginBottom: 8,
-    borderRadius: 28,
-    overflow: 'hidden',
-    backgroundColor: '#0A0A0A',
-    ...Platform.select({
-      ios: { shadowColor: '#0A0A0A', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.28, shadowRadius: 28 },
-      android: { elevation: 12 },
-    }),
-  },
-  feedImageArea: {
-    height: 160,
-    backgroundColor: '#111111',
-    justifyContent: 'flex-end',
-    padding: 18,
-  },
-  feedCategoryBadge: {
-    fontSize: 9,
-    color: 'rgba(237,237,237,0.45)',
-    letterSpacing: 2.5,
-    textTransform: 'uppercase',
-  },
-  feedBody: { padding: 20, gap: 8 },
-  feedMeta: { fontSize: 10, color: 'rgba(237,237,237,0.38)', letterSpacing: 0.3 },
-  feedTitle: {
-    fontFamily: 'PlayfairDisplay_700Bold',
-    fontSize: 18,
-    color: '#EDEDED',
-    lineHeight: 26,
-  },
-  feedExcerpt: { fontSize: 12, color: 'rgba(237,237,237,0.52)', lineHeight: 18 },
-  readMoreRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginTop: 4,
-  },
-  readMoreText: {
-    fontFamily: 'PlayfairDisplay_400Regular_Italic',
-    fontSize: 12,
-    color: 'rgba(237,237,237,0.6)',
+  headerSubtitle: {
+    fontSize: 14,
+    color: '#6B6B6B',
+    textAlign: 'center',
+    lineHeight: 20,
   },
 
   // Category chips
-  categoryChipsWrap: { marginTop: 20 },
-  categoryChips: { paddingHorizontal: 20, gap: 8 },
+  categoryChips: { paddingHorizontal: 20, gap: 8, paddingBottom: 4 },
   categoryChip: {
-    backgroundColor: '#F5F5F5',
     borderWidth: 1,
-    borderColor: '#E8E8E8',
+    borderColor: '#C0BFBD',
     borderRadius: 20,
     paddingHorizontal: 16,
     paddingVertical: 7,
+    backgroundColor: 'transparent',
   },
   categoryChipActive: { backgroundColor: '#0A0A0A', borderColor: '#0A0A0A' },
   categoryChipText: {
@@ -432,72 +328,60 @@ const styles = StyleSheet.create({
     color: '#EDEDED',
   },
 
-  // Editorial section
-  sectionHeader: {
-    paddingHorizontal: 24,
-    marginTop: 24,
-    marginBottom: 8,
-    gap: 10,
-  },
-  sectionLabel: {
-    fontFamily: 'PlayfairDisplay_400Regular_Italic',
-    fontSize: 12,
-    color: '#6B6B6B',
-    letterSpacing: 0.5,
-  },
-  sectionDivider: {
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: 'rgba(0,0,0,0.08)',
-  },
-  articleList: { marginHorizontal: 16, gap: 8 },
+  // Article list
+  articleList: { paddingHorizontal: 20, marginTop: 20, gap: 16 },
 
-  // Article row
-  articleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
+  // Article card
+  card: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 20,
+    borderRadius: 16,
+    overflow: 'hidden',
     borderWidth: 1,
     borderColor: 'rgba(0,0,0,0.06)',
-    padding: 16,
     ...Platform.select({
-      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 10 },
+      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 12 },
       android: { elevation: 2 },
     }),
   },
-  articleRowLast: {},
-  articleRowContent: { flex: 1, gap: 5 },
-  articleRowCategory: {
-    fontSize: 9,
+  cardImage: {
+    width: '100%',
+    height: 200,
+    backgroundColor: '#D4D0CA',
+  },
+  cardBody: {
+    padding: 16,
+    gap: 6,
+  },
+  cardMeta: {
+    fontSize: 11,
     color: '#9A9A9A',
-    letterSpacing: 1.8,
-    textTransform: 'uppercase',
+    letterSpacing: 0.2,
   },
-  articleRowTitle: {
-    fontFamily: 'PlayfairDisplay_700Bold',
-    fontSize: 14,
-    color: '#0A0A0A',
-    lineHeight: 20,
-  },
-  articleRowMeta: { fontSize: 10, color: '#9A9A9A', marginTop: 2 },
-  articleRowThumb: {
-    width: 52,
-    height: 52,
-    borderRadius: 14,
-    backgroundColor: '#F0EFED',
-    flexShrink: 0,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  articleThumbLetter: {
+  cardTitle: {
     fontFamily: 'PlayfairDisplay_700Bold',
     fontSize: 18,
-    color: '#C8C6C2',
+    color: '#0A0A0A',
+    lineHeight: 25,
+  },
+  cardExcerpt: {
+    fontSize: 13,
+    color: '#6B6B6B',
+    lineHeight: 20,
+  },
+  cardCtaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 4,
+  },
+  cardCtaText: {
+    fontFamily: 'PlayfairDisplay_400Regular_Italic',
+    fontSize: 13,
+    color: '#0A0A0A',
   },
 
   // Empty state
-  emptyState: { paddingVertical: 40, alignItems: 'center' },
+  emptyState: { paddingVertical: 48, alignItems: 'center' },
   emptyText: {
     fontFamily: 'PlayfairDisplay_400Regular_Italic',
     fontSize: 14,

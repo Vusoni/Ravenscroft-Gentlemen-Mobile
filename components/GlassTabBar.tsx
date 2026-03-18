@@ -2,6 +2,7 @@
 import { BottomTabBarProps } from "@react-navigation/bottom-tabs";
 import { BlurView } from "expo-blur";
 import * as Haptics from "expo-haptics";
+import { LinearGradient } from "expo-linear-gradient";
 import {
   BookOpen,
   Newspaper,
@@ -48,21 +49,20 @@ function TabItem({
   const scale = useSharedValue(1);
   const pillOpacity = useSharedValue(isFocused ? 1 : 0);
   const iconColor = useSharedValue(isFocused ? 1 : 0);
-  const dotScale = useSharedValue(isFocused ? 1 : 0);
+  const indicatorOpacity = useSharedValue(isFocused ? 1 : 0);
 
   useEffect(() => {
-    pillOpacity.value = withTiming(isFocused ? 1 : 0, { duration: 200 });
-    iconColor.value   = withTiming(isFocused ? 1 : 0, { duration: 200 });
-    dotScale.value    = withSpring(isFocused ? 1 : 0, { damping: 18, stiffness: 260 });
+    pillOpacity.value    = withTiming(isFocused ? 1 : 0, { duration: 200 });
+    iconColor.value      = withTiming(isFocused ? 1 : 0, { duration: 200 });
+    indicatorOpacity.value = withTiming(isFocused ? 1 : 0, { duration: 200 });
   }, [isFocused]);
 
   const pillStyle = useAnimatedStyle(() => ({
     opacity: pillOpacity.value,
   }));
 
-  const dotStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: dotScale.value }],
-    opacity: dotScale.value,
+  const indicatorStyle = useAnimatedStyle(() => ({
+    opacity: indicatorOpacity.value,
   }));
 
   const handlePress = () => {
@@ -89,18 +89,18 @@ function TabItem({
       accessibilityRole="tab"
       accessibilityState={{ selected: isFocused }}
     >
-      {/* Subtle active fill */}
-      <Animated.View style={[styles.activeFill, pillStyle]} />
+      {/* Frosted chip behind active icon */}
+      <Animated.View style={[styles.activeFill, pillStyle]}>
+        {/* Top indicator line */}
+        <Animated.View style={[styles.activeIndicator, indicatorStyle]} />
+      </Animated.View>
 
       {/* Icon */}
       <Icon
-        size={20}
+        size={22}
         color={isFocused ? "#0A0A0A" : "#9A9A9A"}
-        strokeWidth={isFocused ? 2 : 1.4}
+        strokeWidth={isFocused ? 2.2 : 1.4}
       />
-
-      {/* Active dot */}
-      <Animated.View style={[styles.activeDot, dotStyle]} />
     </AnimatedPressable>
   );
 }
@@ -120,14 +120,19 @@ export function GlassTabBar({ state, navigation }: BottomTabBarProps) {
           {/* True blur — iOS */}
           {Platform.OS === "ios" && (
             <BlurView
-              intensity={80}
+              intensity={52}
               tint="systemUltraThinMaterialLight"
               style={StyleSheet.absoluteFill}
             />
           )}
 
-          {/* Barely-there white tint — near-invisible fill */}
-          <View style={[StyleSheet.absoluteFill, styles.tint]} />
+          {/* Gradient tint — refraction shimmer top → transparent */}
+          <LinearGradient
+            colors={["rgba(255,255,255,0.12)", "rgba(255,255,255,0.00)"]}
+            style={[StyleSheet.absoluteFill, styles.gradientTint]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 0, y: 1 }}
+          />
 
           {/* Top specular highlight hairline */}
           <View style={[StyleSheet.absoluteFill, styles.highlight]} />
@@ -177,9 +182,9 @@ const styles = StyleSheet.create({
     ...Platform.select({
       ios: {
         shadowColor: "#000000",
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.08,
-        shadowRadius: 24,
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.13,
+        shadowRadius: 32,
       },
       android: { elevation: 10 },
     }),
@@ -190,26 +195,24 @@ const styles = StyleSheet.create({
     borderRadius: 34,
     overflow: "hidden",
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(255,255,255,0.55)",
+    borderColor: "rgba(255,255,255,0.70)",
     backgroundColor: Platform.select({
       ios: "transparent",
       android: "rgba(242,242,242,0.72)",
     }),
   },
 
-  // Near-invisible tint — let blur do the work
-  tint: {
-    backgroundColor: "rgba(255,255,255,0.06)",
+  gradientTint: {
     borderRadius: 34,
   },
 
-  // Subtle specular line at top edge
+  // Crisper specular hairline at top + left edge
   highlight: {
     borderRadius: 34,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: "rgba(255,255,255,0.90)",
+    borderTopColor: "rgba(255,255,255,0.95)",
     borderLeftWidth: StyleSheet.hairlineWidth,
-    borderLeftColor: "rgba(255,255,255,0.55)",
+    borderLeftColor: "rgba(255,255,255,0.70)",
     borderRightWidth: 0,
     borderBottomWidth: 0,
   },
@@ -225,24 +228,26 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    gap: 5,
     paddingVertical: 10,
   },
 
-  // Very subtle ink fill — barely perceptible
+  // Frosted chip behind active icon
   activeFill: {
     position: "absolute",
     width: 44,
-    height: 38,
-    borderRadius: 16,
-    backgroundColor: "rgba(10,10,10,0.055)",
+    height: 40,
+    borderRadius: 14,
+    backgroundColor: "rgba(10,10,10,0.10)",
+    alignItems: "center",
   },
 
-  // 4px ink dot below active icon
-  activeDot: {
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: "#0A0A0A",
+  // 2px top indicator line inside the chip
+  activeIndicator: {
+    position: "absolute",
+    top: 0,
+    width: 20,
+    height: 2,
+    borderRadius: 1,
+    backgroundColor: "rgba(10,10,10,0.35)",
   },
 });

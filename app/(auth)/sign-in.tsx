@@ -1,7 +1,8 @@
 // app/(auth)/sign-in.tsx
-import { useAuthStore } from '@/store/authStore';
+import { useSignIn, useSSO, useSignInWithApple } from '@clerk/clerk-expo';
 import { useOnboardingStore } from '@/store/onboardingStore';
-import * as AppleAuthentication from 'expo-apple-authentication';
+import { makeRedirectUri } from 'expo-auth-session';
+import * as WebBrowser from 'expo-web-browser';
 import { router } from 'expo-router';
 import { Eye, EyeOff } from 'lucide-react-native';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -31,6 +32,9 @@ import Animated, {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 
+// Required for OAuth web browser redirect to complete
+WebBrowser.maybeCompleteAuthSession();
+
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 // ─── Google G icon ─────────────────────────────────────────────────────────
@@ -41,6 +45,18 @@ function GoogleIcon({ size = 18 }: { size?: number }) {
       <Path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
       <Path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
       <Path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.31-8.16 2.31-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+    </Svg>
+  );
+}
+
+// ─── Apple icon ──────────────────────────────────────────────────────────────
+function AppleIcon({ size = 18 }: { size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 814 1000">
+      <Path
+        fill="#0A0A0A"
+        d="M788.1 340.9c-5.8 4.5-108.2 62.2-108.2 190.5 0 148.4 130.3 200.9 134.2 202.2-.6 3.2-20.7 71.9-68.7 141.9-42.8 61.6-87.5 123.1-155.5 123.1s-85.5-39.5-164-39.5c-76 0-103.7 40.8-165.9 40.8s-105-42.4-150.3-109.6C34 529.5 76.9 400.2 123.2 330.6c32.4-49.8 83.7-82.1 140.8-82.1 58.4 0 95.7 38.4 143.2 38.4 47.5 0 90.9-41.5 156.4-41.5 31.3 0 97.5 13.5 153.6 64.3zM529.9 86.6c25.9-30.6 47.3-73.6 47.3-116.6 0-6-0.6-12.1-1.6-18.1-45.3 1.7-99.2 30.2-131.1 65.2-24.4 27.7-49.8 71.4-49.8 115.5 0 6.4 1 12.8 1.6 15a26.3 26.3 0 003.8.3c40.4 0 92.4-27.1 129.8-61.3z"
+      />
     </Svg>
   );
 }
@@ -145,9 +161,13 @@ export default function SignIn() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [appleAvailable, setAppleAvailable] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const passwordRef = useRef<TextInput | null>(null);
-  const { signIn, signInWithGoogle, signInWithApple, isLoading, error, clearError } = useAuthStore();
+
+  const { signIn, setActive, isLoaded } = useSignIn();
+  const { startSSOFlow } = useSSO();
+  const { startAppleAuthenticationFlow } = useSignInWithApple();
   const checkOnboardingStatus = useOnboardingStore((s) => s.checkOnboardingStatus);
 
   const buttonScale = useSharedValue(1);
@@ -155,11 +175,7 @@ export default function SignIn() {
   const shakeX = useSharedValue(0);
 
   useEffect(() => {
-    AppleAuthentication.isAvailableAsync().then(setAppleAvailable).catch(() => setAppleAvailable(false));
-  }, []);
-
-  useEffect(() => {
-    if (error) clearError();
+    if (error) setError(null);
   }, [email, password]);
 
   const triggerShake = useCallback(() => {
@@ -178,8 +194,8 @@ export default function SignIn() {
   }, [checkOnboardingStatus]);
 
   const handleLogin = useCallback(async () => {
+    if (!isLoaded || !signIn) return;
     Keyboard.dismiss();
-    // Strip invisible unicode iOS inserts silently; replace commas (common mobile typo for period)
     const cleanEmail = email
       .replace(/[\s\u00a0\u200b\u200c\u200d\ufeff]+/g, '')
       .replace(/,/g, '.')
@@ -187,7 +203,7 @@ export default function SignIn() {
     if (!cleanEmail || !password.trim()) { triggerShake(); return; }
     const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
     if (!emailRe.test(cleanEmail)) {
-      useAuthStore.setState({ error: 'Please enter a valid email address.' });
+      setError('Please enter a valid email address.');
       triggerShake();
       return;
     }
@@ -195,19 +211,60 @@ export default function SignIn() {
       'worklet';
       buttonScale.value = withSpring(1, { damping: 15 });
     });
-    const ok = await signIn(cleanEmail, password);
-    if (ok) { await navigateAfterAuth(); } else { triggerShake(); }
-  }, [email, password, signIn, navigateAfterAuth, triggerShake]);
+    setIsLoading(true);
+    try {
+      const result = await signIn.create({ identifier: cleanEmail, password });
+      if (result.status === 'complete') {
+        await setActive!({ session: result.createdSessionId });
+        await navigateAfterAuth();
+      } else {
+        setError('Sign in incomplete. Please try again.');
+        triggerShake();
+      }
+    } catch (err: unknown) {
+      const clerkErr = err as { errors?: { longMessage?: string; message: string }[] };
+      const msg = clerkErr.errors?.[0]?.longMessage ?? clerkErr.errors?.[0]?.message ?? 'Sign in failed.';
+      setError(msg);
+      triggerShake();
+    } finally {
+      setIsLoading(false);
+    }
+  }, [email, password, isLoaded, signIn, setActive, navigateAfterAuth, triggerShake]);
 
   const handleGoogle = useCallback(async () => {
-    const ok = await signInWithGoogle();
-    if (ok) await navigateAfterAuth();
-  }, [signInWithGoogle, navigateAfterAuth]);
+    setIsLoading(true);
+    try {
+      const { createdSessionId, setActive: sa } = await startSSOFlow({
+        strategy: 'oauth_google',
+        redirectUrl: makeRedirectUri(),
+      });
+      if (createdSessionId && sa) {
+        await sa({ session: createdSessionId });
+        await navigateAfterAuth();
+      }
+    } catch {
+      setError('Google sign in failed.');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [startSSOFlow, navigateAfterAuth]);
 
   const handleApple = useCallback(async () => {
-    const ok = await signInWithApple();
-    if (ok) await navigateAfterAuth();
-  }, [signInWithApple, navigateAfterAuth]);
+    setIsLoading(true);
+    try {
+      const { createdSessionId, setActive: sa } = await startAppleAuthenticationFlow();
+      if (createdSessionId && sa) {
+        await sa({ session: createdSessionId });
+        await navigateAfterAuth();
+      }
+    } catch (err: unknown) {
+      const clerkErr = err as { errors?: { message: string }[] };
+      const msg = clerkErr.errors?.[0]?.message ?? 'Apple sign in failed.';
+      setError(msg);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [startAppleAuthenticationFlow, navigateAfterAuth]);
 
   const buttonAnimStyle = useAnimatedStyle(() => ({
     transform: [{ scale: buttonScale.value }],
@@ -260,13 +317,12 @@ export default function SignIn() {
               icon={<GoogleIcon size={17} />}
               label="Google"
             />
-            {Platform.OS === 'ios' && appleAvailable && (
-              <AppleAuthentication.AppleAuthenticationButton
-                buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
-                buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.WHITE_OUTLINE}
-                cornerRadius={50}
-                style={styles.appleButton}
+            {Platform.OS === 'ios' && (
+              <OAuthButton
                 onPress={handleApple}
+                disabled={isLoading}
+                icon={<AppleIcon size={17} />}
+                label="Apple"
               />
             )}
           </Animated.View>
@@ -448,10 +504,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#1C1C1C',
     letterSpacing: 0.2,
-  },
-  appleButton: {
-    flex: 1,
-    height: 50,
   },
 
   // ── "or" divider ──

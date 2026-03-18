@@ -2,7 +2,7 @@
 import { ARTICLES } from '@/constants/articles';
 import { router, useLocalSearchParams } from 'expo-router';
 import { ArrowLeft } from 'lucide-react-native';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function ArticleScreen() {
@@ -27,6 +27,9 @@ export default function ArticleScreen() {
           <Text style={styles.categoryPillText}>{article.category}</Text>
         </View>
       </View>
+
+      {/* ── Hero image ─────────────────────────── */}
+      <Image source={{ uri: article.image }} style={styles.articleImage} resizeMode="cover" />
 
       <ScrollView
         style={styles.flex}
@@ -67,7 +70,7 @@ export default function ArticleScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFFFF' },
+  container: { flex: 1, backgroundColor: '#EDEDED' },
   flex: { flex: 1 },
 
   nav: {
@@ -86,17 +89,24 @@ const styles = StyleSheet.create({
     color: '#6B6B6B',
   },
   categoryPill: {
-    backgroundColor: '#F5F5F5',
-    borderRadius: 20,
-    paddingHorizontal: 12,
+    paddingHorizontal: 4,
     paddingVertical: 4,
   },
   categoryPillText: {
     fontFamily: 'PlayfairDisplay_400Regular',
     fontSize: 10,
-    color: '#6B6B6B',
-    letterSpacing: 1.2,
+    color: '#9A9A9A',
+    letterSpacing: 1.8,
     textTransform: 'uppercase',
+  },
+
+  articleImage: {
+    marginHorizontal: 20,
+    marginTop: 20,
+    height: 220,
+    borderRadius: 16,
+    backgroundColor: '#D4D0CA',
+    overflow: 'hidden',
   },
 
   scrollContent: { padding: 24, paddingBottom: 56 },
@@ -133,9 +143,9 @@ const styles = StyleSheet.create({
     marginTop: 32,
     padding: 20,
     borderRadius: 20,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.05)',
+    borderColor: 'rgba(0,0,0,0.06)',
   },
   summaryTitle: {
     fontFamily: 'PlayfairDisplay_700Bold',

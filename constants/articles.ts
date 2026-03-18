@@ -13,6 +13,7 @@ export interface Article {
   readTime: string;
   title: string;
   excerpt: string;
+  image: string;
   body: string[];
   summary: string[];
 }
@@ -24,6 +25,7 @@ export const ARTICLES: Article[] = [
     date: '06 Mar 2026',
     readTime: '8 min',
     title: 'The Discipline of Morning: How Great Men Begin Their Day.',
+    image: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=800&q=80',
     excerpt:
       'The Stoics were not simply philosophers. They were practitioners. Marcus Aurelius rose before dawn not because he wanted to, but because he chose to — and in that distinction lies everything.',
     body: [
@@ -45,6 +47,7 @@ export const ARTICLES: Article[] = [
     date: '01 Mar 2026',
     readTime: '15 min',
     title: 'Art Makers and Rule Breakers for a Gentleman\'s Cultural Showcase.',
+    image: 'https://images.unsplash.com/photo-1460661419201-fd4cecdf8a8b?auto=format&fit=crop&w=800&q=80',
     excerpt:
       "A collision of worlds; a dance of contrasts — a harmonious disarray. Culture is not a passive inheritance — it is an active discipline that elevates every decision.",
     body: [
@@ -66,6 +69,7 @@ export const ARTICLES: Article[] = [
     date: '25 Feb 2026',
     readTime: '6 min',
     title: 'On the Virtue of Silence in a World That Rewards Noise.',
+    image: 'https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=800&q=80',
     excerpt:
       'In antiquity, silence was considered a mark of wisdom. Today we mistake verbosity for intelligence, and volume for confidence. The gentleman reacquaints himself with restraint.',
     body: [
@@ -87,6 +91,7 @@ export const ARTICLES: Article[] = [
     date: '20 Feb 2026',
     readTime: '10 min',
     title: 'The Well-Dressed Mind: On Books, Tailoring, and the Art of Being.',
+    image: 'https://images.unsplash.com/photo-1490114538077-0a7f8cb49891?auto=format&fit=crop&w=800&q=80',
     excerpt:
       'Dress is character made visible. But what of the interior? The man who attends to his wardrobe yet neglects his library presents a curious contradiction — appearance without substance.',
     body: [
@@ -108,6 +113,7 @@ export const ARTICLES: Article[] = [
     date: '14 Feb 2026',
     readTime: '12 min',
     title: 'Reading Marcus Aurelius in 2026: What the Emperor Still Teaches Us.',
+    image: 'https://images.unsplash.com/photo-1481627834876-b7833e8f5570?auto=format&fit=crop&w=800&q=80',
     excerpt:
       "The Meditations were never meant to be published. They were private reminders from a man who held the fate of an empire — and still worried he wasn't doing enough. That honesty is what makes them timeless.",
     body: [
@@ -129,6 +135,7 @@ export const ARTICLES: Article[] = [
     date: '08 Feb 2026',
     readTime: '9 min',
     title: 'What London Taught Me About Patience, Craft, and Measured Ambition.',
+    image: 'https://images.unsplash.com/photo-1513635269975-59663e0ac1ad?auto=format&fit=crop&w=800&q=80',
     excerpt:
       'London does not rush. The city has weathered centuries with a particular brand of unhurried confidence that the frenetic capitals of the new world have yet to cultivate.',
     body: [

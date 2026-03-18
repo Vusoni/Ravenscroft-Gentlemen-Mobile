@@ -1,5 +1,5 @@
 // app/index.tsx — auth + onboarding gate
-import { useAuthStore } from '@/store/authStore';
+import { useAuth } from '@clerk/clerk-expo';
 import { useOnboardingStore } from '@/store/onboardingStore';
 import { Redirect } from 'expo-router';
 import { useEffect, useState } from 'react';
@@ -16,16 +16,17 @@ type Destination = '/(auth)/sign-in' | '/(onboarding)' | '/(home)';
 export default function Index() {
   const [destination, setDestination] = useState<Destination | null>(null);
   const [navigating, setNavigating] = useState(false);
-  const checkAuthStatus = useAuthStore((s) => s.checkAuthStatus);
+  const { isSignedIn, isLoaded } = useAuth();
   const checkOnboardingStatus = useOnboardingStore((s) => s.checkOnboardingStatus);
 
   // White overlay fades out revealing ivory beneath, then we navigate
   const overlayOpacity = useSharedValue(1);
 
   useEffect(() => {
+    if (!isLoaded) return;
+
     (async () => {
-      const authed = await checkAuthStatus();
-      if (!authed) {
+      if (!isSignedIn) {
         setDestination('/(auth)/sign-in');
       } else {
         const onboardingDone = await checkOnboardingStatus();
@@ -35,7 +36,7 @@ export default function Index() {
       overlayOpacity.value = withDelay(400, withTiming(0, { duration: 700 }));
       setTimeout(() => setNavigating(true), 1100);
     })();
-  }, [checkAuthStatus, checkOnboardingStatus]);
+  }, [isLoaded, isSignedIn, checkOnboardingStatus]);
 
   const overlayStyle = useAnimatedStyle(() => ({
     opacity: overlayOpacity.value,
