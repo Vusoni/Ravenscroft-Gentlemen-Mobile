@@ -2,8 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 
 import { JournalCategory, JournalEntry } from '@/types/journal';
-
-const JOURNAL_KEY = 'ravenscroft_journal';
+import { STORAGE_KEYS } from '@/utils/storageKeys';
 
 interface JournalState {
   entries: JournalEntry[];
@@ -27,7 +26,7 @@ export const useJournalStore = create<JournalState>((set, get) => ({
 
   hydrate: async () => {
     if (get().hydrated) return;
-    const raw = await AsyncStorage.getItem(JOURNAL_KEY);
+    const raw = await AsyncStorage.getItem(STORAGE_KEYS.journal);
     const entries: JournalEntry[] = raw ? JSON.parse(raw) : [];
     set({ entries, hydrated: true });
   },
@@ -41,7 +40,7 @@ export const useJournalStore = create<JournalState>((set, get) => ({
     };
     const entries = [entry, ...get().entries];
     set({ entries });
-    await AsyncStorage.setItem(JOURNAL_KEY, JSON.stringify(entries));
+    await AsyncStorage.setItem(STORAGE_KEYS.journal, JSON.stringify(entries));
     return entry;
   },
 
@@ -50,13 +49,13 @@ export const useJournalStore = create<JournalState>((set, get) => ({
       e.id === id ? { ...e, ...updates, updatedAt: new Date().toISOString() } : e,
     );
     set({ entries });
-    await AsyncStorage.setItem(JOURNAL_KEY, JSON.stringify(entries));
+    await AsyncStorage.setItem(STORAGE_KEYS.journal, JSON.stringify(entries));
   },
 
   deleteEntry: async (id) => {
     const entries = get().entries.filter((e) => e.id !== id);
     set({ entries });
-    await AsyncStorage.setItem(JOURNAL_KEY, JSON.stringify(entries));
+    await AsyncStorage.setItem(STORAGE_KEYS.journal, JSON.stringify(entries));
   },
 
   getEntriesForDate: (dateISO) => {

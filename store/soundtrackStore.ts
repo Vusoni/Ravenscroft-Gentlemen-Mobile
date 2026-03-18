@@ -2,8 +2,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { Song } from '@/types/song';
-
-const SOUNDTRACK_KEY = 'ravenscroft_soundtrack';
+import { STORAGE_KEYS } from '@/utils/storageKeys';
 
 interface SoundtrackState {
   selectedSong: Song | null;
@@ -19,18 +18,18 @@ export const useSoundtrackStore = create<SoundtrackState>((set, get) => ({
 
   hydrate: async () => {
     if (get().hydrated) return;
-    const raw = await AsyncStorage.getItem(SOUNDTRACK_KEY);
+    const raw = await AsyncStorage.getItem(STORAGE_KEYS.soundtrack);
     const selectedSong: Song | null = raw ? JSON.parse(raw) : null;
     set({ selectedSong, hydrated: true });
   },
 
   setSong: async (song: Song) => {
     set({ selectedSong: song });
-    await AsyncStorage.setItem(SOUNDTRACK_KEY, JSON.stringify(song));
+    await AsyncStorage.setItem(STORAGE_KEYS.soundtrack, JSON.stringify(song));
   },
 
   clearSong: async () => {
     set({ selectedSong: null });
-    await AsyncStorage.removeItem(SOUNDTRACK_KEY);
+    await AsyncStorage.removeItem(STORAGE_KEYS.soundtrack);
   },
 }));

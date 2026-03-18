@@ -1,8 +1,9 @@
 // components/GlassCard.tsx
-// Reusable 2027 glassmorphism surface.
-// Uses expo-blur on iOS for true frosted glass; Android gets a semi-transparent fallback.
-import { BlurView } from 'expo-blur';
-import { Platform, StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
+// Reusable glassmorphism surface.
+// Uses GlassBlur for platform-split blur (iOS BlurView / Android no-op).
+import { StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
+import { GlassBlur } from '@/components/GlassBlur';
+import { cardShadow } from '@/utils/shadows';
 
 interface GlassCardProps {
   children: React.ReactNode;
@@ -34,23 +35,14 @@ export function GlassCard({
           // White top/left inner highlight + dark bottom/right hairline
           borderWidth: 1,
           borderColor: 'rgba(255,255,255,0.82)',
-          backgroundColor: Platform.select({
-            ios: 'transparent',
-            android: fillColor,
-          }),
+          backgroundColor: fillColor,
         },
-        !noShadow && styles.shadow,
+        !noShadow && cardShadow,
         style,
       ]}
     >
-      {/* True blur layer (iOS only) */}
-      {Platform.OS === 'ios' && (
-        <BlurView
-          intensity={intensity}
-          tint="systemChromeMaterialLight"
-          style={StyleSheet.absoluteFill}
-        />
-      )}
+      {/* Platform-split blur layer */}
+      <GlassBlur intensity={intensity} />
 
       {/* Semi-transparent fill overlay (tints the blur) */}
       <View
@@ -81,19 +73,3 @@ export function GlassCard({
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  shadow: {
-    ...Platform.select({
-      ios: {
-        shadowColor: '#1C1C1C',
-        shadowOffset: { width: 0, height: 6 },
-        shadowOpacity: 0.12,
-        shadowRadius: 24,
-      },
-      android: {
-        elevation: 8,
-      },
-    }),
-  },
-});

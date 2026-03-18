@@ -2,16 +2,10 @@
 import { GlassCard } from '@/components/GlassCard';
 import { ImportButton } from '@/components/ImportButton';
 import { KindleHighlightCard } from '@/components/KindleHighlightCard';
-import {
-  fileHash,
-  parseMyClippings,
-  validateClippingsFile,
-} from '@/lib/kindleParser';
-import { matchKindleBooks } from '@/lib/kindleMatcher';
+import { useKindleImport } from '@/hooks/useKindleImport';
 import { useBooksStore } from '@/store/booksStore';
 import { useKindleStore } from '@/store/kindleStore';
 import type { KindleBook } from '@/types/kindle';
-import * as DocumentPicker from 'expo-document-picker';
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
 import {
@@ -24,7 +18,7 @@ import {
   MessageSquareText,
   X,
 } from 'lucide-react-native';
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   FlatList,
   Modal,
@@ -37,32 +31,20 @@ import {
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
-interface ImportResult {
-  added: number;
-  duplicates: number;
-  booksFound: number;
-}
-
 export default function KindleImportScreen() {
   const insets = useSafeAreaInsets();
   const {
     hydrate,
     books,
     imports,
-    importClippings,
-    setBookMatch,
     getClippingsForBook,
-    hasImportedFile,
   } = useKindleStore();
   const { library, hydrate: hydrateBooks } = useBooksStore();
 
-  const [importing, setImporting] = useState(false);
-  const [result, setResult] = useState<ImportResult | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const { importing, result, error, handleImport, handleConfirmMatch } = useKindleImport();
 
   // Matching modal
   const [matchingBook, setMatchingBook] = useState<KindleBook | null>(null);
-
   // Highlights modal
   const [viewingBook, setViewingBook] = useState<KindleBook | null>(null);
 
@@ -73,113 +55,23 @@ export default function KindleImportScreen() {
 
   const lastImport = imports.length > 0 ? imports[imports.length - 1] : null;
 
-  // ─── File picker + import ───────────────────────────────────────────────────
-
-  const handleImport = useCallback(async () => {
-    try {
-      setError(null);
-      setResult(null);
-
-      const picked = await DocumentPicker.getDocumentAsync({
-        type: 'text/plain',
-        copyToCacheDirectory: true,
-      });
-
-      if (picked.canceled) return;
-
-      const file = picked.assets[0];
-      if (!file.uri) return;
-
-      setImporting(true);
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-
-      // Read file content
-      const response = await fetch(file.uri);
-      const content = await response.text();
-
-      // Validate
-      const validation = validateClippingsFile(content);
-      if (!validation.valid) {
-        setError(validation.error ?? 'Invalid file.');
-        setImporting(false);
-        return;
-      }
-
-      // Check duplicate file
-      const hash = await fileHash(content);
-      if (hasImportedFile(hash)) {
-        setError('This file has already been imported.');
-        setImporting(false);
-        return;
-      }
-
-      // Parse
-      const parsed = await parseMyClippings(content);
-      if (parsed.length === 0) {
-        setError('No highlights or notes found in this file.');
-        setImporting(false);
-        return;
-      }
-
-      // Import into store
-      const importResult = await importClippings(parsed, hash);
-      setResult(importResult);
-
-      // Auto-match books
-      const currentBooks = useKindleStore.getState().books;
-      const unmatchedBooks = currentBooks.filter((b) => !b.matchedBookId);
-      if (unmatchedBooks.length > 0 && library.length > 0) {
-        const matches = matchKindleBooks(unmatchedBooks, library);
-        for (const match of matches) {
-          if (match.matchedBookId) {
-            await setBookMatch(match.kindleKey, match.matchedBookId);
-          }
-        }
-      }
-
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Import failed.';
-      setError(msg);
-    } finally {
-      setImporting(false);
-    }
-  }, [importClippings, hasImportedFile, setBookMatch, library]);
-
   // ─── Render helpers ─────────────────────────────────────────────────────────
 
   const renderBookRow = ({ item, index }: { item: KindleBook; index: number }) => {
     const isMatched = !!item.matchedBookId;
-    const matchedLib = isMatched
-      ? library.find((b) => b.id === item.matchedBookId)
-      : null;
+    const matchedLib = isMatched ? library.find((b) => b.id === item.matchedBookId) : null;
     return (
       <Animated.View entering={FadeInDown.delay(index * 60).duration(400)}>
         <Pressable onPress={() => setViewingBook(item)}>
-          <GlassCard
-            borderRadius={16}
-            style={styles.bookCard}
-          >
+          <GlassCard borderRadius={16} style={styles.bookCard}>
             <View style={styles.bookHeader}>
               <View style={styles.bookInfo}>
-                <Text style={styles.bookTitle} numberOfLines={2}>
-                  {item.rawTitle}
-                </Text>
-                <Text style={styles.bookAuthor} numberOfLines={1}>
-                  {item.rawAuthor}
-                </Text>
+                <Text style={styles.bookTitle} numberOfLines={2}>{item.rawTitle}</Text>
+                <Text style={styles.bookAuthor} numberOfLines={1}>{item.rawAuthor}</Text>
               </View>
-
-              {/* Match status dot */}
-              <View
-                style={[
-                  styles.statusDot,
-                  { backgroundColor: isMatched ? '#34C759' : '#FF9500' },
-                ]}
-              />
+              <View style={[styles.statusDot, { backgroundColor: isMatched ? '#34C759' : '#FF9500' }]} />
             </View>
 
-            {/* Stats */}
             <View style={styles.stats}>
               <View style={styles.statPill}>
                 <Highlighter size={12} color="#6B6B6B" strokeWidth={2} />
@@ -193,7 +85,6 @@ export default function KindleImportScreen() {
               )}
             </View>
 
-            {/* Match info or Match button */}
             {isMatched && matchedLib ? (
               <View style={styles.matchedRow}>
                 <Check size={14} color="#34C759" strokeWidth={2.5} />
@@ -202,10 +93,7 @@ export default function KindleImportScreen() {
                 </Text>
               </View>
             ) : (
-              <Pressable
-                style={styles.matchButton}
-                onPress={() => setMatchingBook(item)}
-              >
+              <Pressable style={styles.matchButton} onPress={() => setMatchingBook(item)}>
                 <BookOpen size={14} color="#0A0A0A" strokeWidth={2} />
                 <Text style={styles.matchButtonText}>Match to Library</Text>
               </Pressable>
@@ -245,9 +133,7 @@ export default function KindleImportScreen() {
         {library.length === 0 ? (
           <View style={styles.emptyState}>
             <BookOpen size={32} color="#D4D4D4" strokeWidth={1.5} />
-            <Text style={styles.emptyText}>
-              Your library is empty. Add books first.
-            </Text>
+            <Text style={styles.emptyText}>Your library is empty. Add books first.</Text>
           </View>
         ) : (
           <FlatList
@@ -259,21 +145,14 @@ export default function KindleImportScreen() {
                 style={styles.libraryRow}
                 onPress={async () => {
                   if (matchingBook) {
-                    await setBookMatch(matchingBook.kindleKey, item.id);
-                    Haptics.notificationAsync(
-                      Haptics.NotificationFeedbackType.Success,
-                    );
+                    await handleConfirmMatch(matchingBook.kindleKey, item.id);
                     setMatchingBook(null);
                   }
                 }}
               >
                 <View style={styles.libraryRowInfo}>
-                  <Text style={styles.libraryRowTitle} numberOfLines={1}>
-                    {item.title}
-                  </Text>
-                  <Text style={styles.libraryRowAuthor} numberOfLines={1}>
-                    {item.author}
-                  </Text>
+                  <Text style={styles.libraryRowTitle} numberOfLines={1}>{item.title}</Text>
+                  <Text style={styles.libraryRowAuthor} numberOfLines={1}>{item.author}</Text>
                 </View>
                 <Circle size={18} color="#D4D4D4" strokeWidth={1.5} />
               </Pressable>
@@ -281,10 +160,7 @@ export default function KindleImportScreen() {
           />
         )}
 
-        <Pressable
-          style={styles.skipButton}
-          onPress={() => setMatchingBook(null)}
-        >
+        <Pressable style={styles.skipButton} onPress={() => setMatchingBook(null)}>
           <Text style={styles.skipButtonText}>Skip</Text>
         </Pressable>
       </SafeAreaView>
@@ -307,9 +183,7 @@ export default function KindleImportScreen() {
         <SafeAreaView style={styles.modalContainer}>
           <View style={styles.modalHeader}>
             <View style={{ flex: 1 }}>
-              <Text style={styles.modalTitle} numberOfLines={1}>
-                {viewingBook.rawTitle}
-              </Text>
+              <Text style={styles.modalTitle} numberOfLines={1}>{viewingBook.rawTitle}</Text>
               <Text style={styles.modalSubtitle}>{clippings.length} clippings</Text>
             </View>
             <Pressable onPress={() => setViewingBook(null)}>
@@ -398,10 +272,7 @@ export default function KindleImportScreen() {
           {/* Book list */}
           {books.length > 0 && (
             <View style={{ marginTop: 24 }}>
-              <Text style={styles.sectionTitle}>
-                Your Kindle Books ({books.length})
-              </Text>
-
+              <Text style={styles.sectionTitle}>Your Kindle Books ({books.length})</Text>
               {books.map((book, index) => (
                 <View key={book.kindleKey}>
                   {renderBookRow({ item: book, index })}
@@ -502,9 +373,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     gap: 12,
   },
-  bookInfo: {
-    flex: 1,
-  },
+  bookInfo: { flex: 1 },
   bookTitle: {
     fontFamily: 'PlayfairDisplay_700Bold',
     fontSize: 15,
@@ -629,9 +498,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#D4D4D4',
   },
-  libraryRowInfo: {
-    flex: 1,
-  },
+  libraryRowInfo: { flex: 1 },
   libraryRowTitle: {
     fontFamily: 'PlayfairDisplay_700Bold',
     fontSize: 15,
