@@ -264,5 +264,5 @@ npm run typecheck            # Type check only
 ---
 
 <div align="center">
-  <sub>Built with React Native · Expo · Claude AI · TypeScript</sub>
+  <sub>Built with React Native · Expo · TypeScript</sub>
 </div>
