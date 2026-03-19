@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import type { KindleClipping, KindleBook, ImportRecord } from '@/types/kindle';
 import { normalizeKindleKey } from '@/lib/kindleParser';
+import { generateId } from '@/utils/id';
 
 const CLIPPINGS_KEY = 'ravenscroft_kindle_clippings';
 const BOOKS_KEY = 'ravenscroft_kindle_books';
@@ -105,7 +106,7 @@ export const useKindleStore = create<KindleState>((set, get) => ({
     const books = Array.from(booksMap.values());
 
     const importRecord: ImportRecord = {
-      id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      id: generateId(),
       importedAt: new Date().toISOString(),
       fileHash: fileHashValue,
       clippingsAdded: added,

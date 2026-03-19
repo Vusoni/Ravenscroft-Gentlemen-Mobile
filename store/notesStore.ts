@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { UserNote } from '@/types/book';
+import { generateId } from '@/utils/id';
 
 const NOTES_KEY = 'ravenscroft_notes';
 
@@ -26,7 +27,7 @@ export const useNotesStore = create<NotesState>((set, get) => ({
 
   addNote: async ({ bookId, text, pageIndex }) => {
     const note: UserNote = {
-      id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      id: generateId(),
       bookId,
       text,
       pageIndex,

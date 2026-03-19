@@ -19,24 +19,19 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import Animated, {
-  FadeInDown,
-  useAnimatedStyle,
-  useSharedValue,
-  withSpring,
-} from 'react-native-reanimated';
+import Animated, { FadeInDown } from 'react-native-reanimated';
+import { useScaleAnimation } from '@/hooks/useScaleAnimation';
 
 const GUIDE_SHOWN_KEY = 'ravenscroft_guide_shown';
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 function PressCard({ onPress, children }: { onPress: () => void; children: ReactNode }) {
-  const scale = useSharedValue(1);
-  const animStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+  const { animStyle, onPressIn, onPressOut } = useScaleAnimation({ pressedScale: 0.97 });
   return (
     <AnimatedPressable
       style={animStyle}
-      onPressIn={() => { scale.value = withSpring(0.97, { damping: 18, stiffness: 180 }); }}
-      onPressOut={() => { scale.value = withSpring(1, { damping: 18, stiffness: 180 }); }}
+      onPressIn={onPressIn}
+      onPressOut={onPressOut}
       onPress={onPress}
     >
       {children}

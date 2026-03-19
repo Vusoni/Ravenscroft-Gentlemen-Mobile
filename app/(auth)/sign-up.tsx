@@ -1,6 +1,11 @@
 // app/(auth)/sign-up.tsx
 import { useSignUp, useSSO, useSignInWithApple } from '@clerk/clerk-expo';
 import { useOnboardingStore } from '@/store/onboardingStore';
+import { sanitizeEmail, validateEmail } from '@/utils/email';
+import { useScaleAnimation } from '@/hooks/useScaleAnimation';
+import { useErrorShake } from '@/hooks/useErrorShake';
+import { useAuthNavigation } from '@/hooks/useAuthNavigation';
+import { BoxInput } from '@/components/BoxInput';
 import { makeRedirectUri } from 'expo-auth-session';
 import * as WebBrowser from 'expo-web-browser';
 import { router } from 'expo-router';
@@ -22,12 +27,9 @@ import {
 import Animated, {
   FadeIn,
   FadeInDown,
-  interpolateColor,
   useAnimatedStyle,
   useSharedValue,
-  withSequence,
   withSpring,
-  withTiming,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
@@ -73,14 +75,13 @@ function OAuthButton({
   icon: React.ReactNode;
   label: string;
 }) {
-  const scale = useSharedValue(1);
-  const animStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+  const { animStyle, onPressIn, onPressOut } = useScaleAnimation({ pressedScale: 0.96, damping: 15 });
   return (
     <AnimatedPressable
       onPress={onPress}
       disabled={disabled}
-      onPressIn={() => { scale.value = withSpring(0.96, { damping: 15 }); }}
-      onPressOut={() => { scale.value = withSpring(1, { damping: 15 }); }}
+      onPressIn={onPressIn}
+      onPressOut={onPressOut}
       style={[styles.oauthButton, disabled && { opacity: 0.5 }, animStyle]}
       accessibilityRole="button"
       accessibilityLabel={label}
@@ -88,70 +89,6 @@ function OAuthButton({
       {icon}
       <Text style={styles.oauthLabel}>{label}</Text>
     </AnimatedPressable>
-  );
-}
-
-// ─── Box Input ────────────────────────────────────────────────────────────────
-function BoxInput({
-  label,
-  placeholder,
-  value,
-  onChangeText,
-  secureTextEntry,
-  autoCapitalize,
-  keyboardType,
-  returnKeyType,
-  onSubmitEditing,
-  inputRef,
-  textContentType,
-  rightIcon,
-}: {
-  label: string;
-  placeholder?: string;
-  value: string;
-  onChangeText: (t: string) => void;
-  secureTextEntry?: boolean;
-  autoCapitalize?: 'none' | 'sentences' | 'words' | 'characters';
-  keyboardType?: 'default' | 'email-address' | 'number-pad';
-  returnKeyType?: 'done' | 'next' | 'go';
-  onSubmitEditing?: () => void;
-  inputRef?: React.RefObject<TextInput | null>;
-  textContentType?: 'emailAddress' | 'password' | 'newPassword' | 'name' | 'oneTimeCode' | 'none';
-  rightIcon?: React.ReactNode;
-}) {
-  const focused = useSharedValue(0);
-
-  const borderStyle = useAnimatedStyle(() => ({
-    borderColor: interpolateColor(focused.value, [0, 1], ['rgba(0,0,0,0)', '#0A0A0A']),
-  }));
-
-  return (
-    <View style={inputStyles.wrapper}>
-      <Text style={inputStyles.label}>{label}</Text>
-      <Animated.View style={[inputStyles.box, borderStyle]}>
-        <View style={inputStyles.inputRow}>
-          <TextInput
-            ref={inputRef}
-            value={value}
-            onChangeText={onChangeText}
-            placeholder={placeholder}
-            placeholderTextColor="#ABABAB"
-            secureTextEntry={secureTextEntry}
-            autoCapitalize={autoCapitalize ?? 'none'}
-            autoCorrect={false}
-            spellCheck={false}
-            keyboardType={keyboardType}
-            returnKeyType={returnKeyType ?? 'done'}
-            textContentType={textContentType ?? 'none'}
-            onSubmitEditing={onSubmitEditing}
-            onFocus={() => { focused.value = withSpring(1, { damping: 18, stiffness: 180 }); }}
-            onBlur={() => { focused.value = withSpring(0, { damping: 18, stiffness: 180 }); }}
-            style={inputStyles.input}
-          />
-          {rightIcon}
-        </View>
-      </Animated.View>
-    </View>
   );
 }
 
@@ -174,36 +111,16 @@ export default function SignUp() {
   const { signUp, setActive, isLoaded } = useSignUp();
   const { startSSOFlow } = useSSO();
   const { startAppleAuthenticationFlow } = useSignInWithApple();
-  const checkOnboardingStatus = useOnboardingStore((s) => s.checkOnboardingStatus);
   const resetOnboarding = useOnboardingStore((s) => s.resetOnboarding);
+  const { navigateAfterAuth } = useAuthNavigation();
 
   const buttonScale = useSharedValue(1);
   const secondaryScale = useSharedValue(1);
-  const shakeX = useSharedValue(0);
+  const { shakeStyle: formShakeStyle, triggerShake } = useErrorShake();
 
   useEffect(() => {
     if (error) setError(null);
   }, [displayName, email, password, code]);
-
-  const triggerShake = useCallback(() => {
-    shakeX.value = withSequence(
-      withTiming(-8, { duration: 60 }),
-      withTiming(8, { duration: 60 }),
-      withTiming(-6, { duration: 60 }),
-      withTiming(6, { duration: 60 }),
-      withTiming(0, { duration: 60 }),
-    );
-  }, []);
-
-  const navigateAfterAuth = useCallback(async () => {
-    const onboardingDone = await checkOnboardingStatus();
-    router.replace(onboardingDone ? '/(home)' : '/(onboarding)');
-  }, [checkOnboardingStatus]);
-
-  const sanitizeEmail = (raw: string) =>
-    raw.replace(/[\s\u00a0\u200b\u200c\u200d\ufeff]+/g, '').replace(/,/g, '.').toLowerCase();
-
-  const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
   const handleGoogle = useCallback(async () => {
     setIsLoading(true);
@@ -244,7 +161,7 @@ export default function SignUp() {
     Keyboard.dismiss();
     const cleanEmail = sanitizeEmail(email);
     if (!cleanEmail || !password.trim()) { triggerShake(); return; }
-    if (!emailRe.test(cleanEmail)) {
+    if (!validateEmail(cleanEmail)) {
       setError('Please enter a valid email address.');
       triggerShake();
       return;
@@ -310,7 +227,6 @@ export default function SignUp() {
 
   const buttonAnimStyle = useAnimatedStyle(() => ({ transform: [{ scale: buttonScale.value }] }));
   const secondaryAnimStyle = useAnimatedStyle(() => ({ transform: [{ scale: secondaryScale.value }] }));
-  const formShakeStyle = useAnimatedStyle(() => ({ transform: [{ translateX: shakeX.value }] }));
 
   return (
     <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
@@ -675,32 +591,3 @@ const styles = StyleSheet.create({
   },
 });
 
-const inputStyles = StyleSheet.create({
-  wrapper: {
-    gap: 6,
-  },
-  label: {
-    fontFamily: 'PlayfairDisplay_400Regular',
-    fontSize: 12,
-    color: '#6B6B6B',
-    letterSpacing: 0.3,
-  },
-  box: {
-    backgroundColor: '#F0F0EE',
-    borderRadius: 14,
-    borderWidth: 1,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-  },
-  inputRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  input: {
-    flex: 1,
-    fontFamily: 'PlayfairDisplay_400Regular',
-    fontSize: 15,
-    color: '#0A0A0A',
-    padding: 0,
-  },
-});

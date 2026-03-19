@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
+import { generateId } from '@/utils/id';
 
 const CHATS_KEY = 'ravenscroft_chats';
 const MAX_MESSAGES_PER_BOOK = 100;
@@ -33,7 +34,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
   addMessage: async (bookId, { role, text }) => {
     const message: ChatMessage = {
-      id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      id: generateId(),
       role,
       text,
       createdAt: new Date().toISOString(),

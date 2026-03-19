@@ -1,10 +1,7 @@
 // components/ContinueButton.tsx
-import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withSpring,
-} from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
 import { Pressable, Text } from 'react-native';
+import { useScaleAnimation } from '@/hooks/useScaleAnimation';
 
 interface Props {
   label?: string;
@@ -15,17 +12,13 @@ interface Props {
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 export function ContinueButton({ label = 'Continue', onPress, disabled = false }: Props) {
-  const scale = useSharedValue(1);
-
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-  }));
+  const { animStyle, onPressIn, onPressOut } = useScaleAnimation();
 
   return (
     <AnimatedPressable
-      style={animatedStyle}
-      onPressIn={() => { scale.value = withSpring(0.96); }}
-      onPressOut={() => { scale.value = withSpring(1); }}
+      style={animStyle}
+      onPressIn={onPressIn}
+      onPressOut={onPressOut}
       onPress={onPress}
       disabled={disabled}
       accessibilityRole="button"

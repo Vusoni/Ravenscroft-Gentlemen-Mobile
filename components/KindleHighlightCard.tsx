@@ -1,11 +1,8 @@
 import type { KindleClipping } from '@/types/kindle';
 import { MapPin } from 'lucide-react-native';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withSpring,
-} from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
+import { useScaleAnimation } from '@/hooks/useScaleAnimation';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -30,21 +27,13 @@ function relativeDate(iso: string): string {
 }
 
 export function KindleHighlightCard({ clipping, onPress, onLongPress }: Props) {
-  const scale = useSharedValue(1);
-
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-  }));
+  const { animStyle, onPressIn, onPressOut } = useScaleAnimation({ pressedScale: 0.97 });
 
   return (
     <AnimatedPressable
-      style={[styles.card, animatedStyle]}
-      onPressIn={() => {
-        scale.value = withSpring(0.97, { damping: 18, stiffness: 180 });
-      }}
-      onPressOut={() => {
-        scale.value = withSpring(1, { damping: 18, stiffness: 180 });
-      }}
+      style={[styles.card, animStyle]}
+      onPressIn={onPressIn}
+      onPressOut={onPressOut}
       onPress={onPress}
       onLongPress={onLongPress}
     >

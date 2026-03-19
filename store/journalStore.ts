@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 
 import { JournalCategory, JournalEntry } from '@/types/journal';
+import { generateId } from '@/utils/id';
 
 const JOURNAL_KEY = 'ravenscroft_journal';
 
@@ -35,7 +36,7 @@ export const useJournalStore = create<JournalState>((set, get) => ({
   addEntry: async (data) => {
     const entry: JournalEntry = {
       ...data,
-      id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      id: generateId(),
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };

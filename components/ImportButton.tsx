@@ -1,10 +1,7 @@
 import { FileText } from 'lucide-react-native';
 import { ActivityIndicator, Pressable, Text } from 'react-native';
-import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withSpring,
-} from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
+import { useScaleAnimation } from '@/hooks/useScaleAnimation';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -15,23 +12,15 @@ interface Props {
 }
 
 export function ImportButton({ onPress, loading = false, disabled = false }: Props) {
-  const scale = useSharedValue(1);
-
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-  }));
+  const { animStyle, onPressIn, onPressOut } = useScaleAnimation();
 
   const isDisabled = disabled || loading;
 
   return (
     <AnimatedPressable
-      style={animatedStyle}
-      onPressIn={() => {
-        scale.value = withSpring(0.96, { damping: 18, stiffness: 180 });
-      }}
-      onPressOut={() => {
-        scale.value = withSpring(1, { damping: 18, stiffness: 180 });
-      }}
+      style={animStyle}
+      onPressIn={onPressIn}
+      onPressOut={onPressOut}
       onPress={onPress}
       disabled={isDisabled}
       accessibilityRole="button"

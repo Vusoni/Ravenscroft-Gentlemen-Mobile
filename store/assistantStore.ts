@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
+import { generateId } from '@/utils/id';
 
 const ASSISTANT_KEY = 'ravenscroft_assistant_chat';
 const MAX_MESSAGES = 100;
@@ -32,7 +33,7 @@ export const useAssistantStore = create<AssistantState>((set, get) => ({
 
   addMessage: async ({ role, text }) => {
     const message: AssistantMessage = {
-      id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      id: generateId(),
       role,
       text,
       createdAt: new Date().toISOString(),

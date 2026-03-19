@@ -34,6 +34,7 @@ import Animated, {
   withSpring,
   withTiming,
 } from 'react-native-reanimated';
+import { useScaleAnimation } from '@/hooks/useScaleAnimation';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const { width: SCREEN_W } = Dimensions.get('window');
@@ -270,15 +271,14 @@ function BookCard({
   inLibrary: boolean;
   isLibraryView?: boolean;
 }) {
-  const scale = useSharedValue(1);
-  const animStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+  const { animStyle, onPressIn, onPressOut } = useScaleAnimation({ pressedScale: 0.96, damping: 14 });
   const coverH = isLibraryView ? COVER_H_LIBRARY : COVER_H;
 
   return (
     <AnimatedPressable
       style={[animStyle, { width: CARD_W }]}
-      onPressIn={() => { scale.value = withSpring(0.96, { damping: 14 }); }}
-      onPressOut={() => { scale.value = withSpring(1, { damping: 14 }); }}
+      onPressIn={onPressIn}
+      onPressOut={onPressOut}
       onPress={() =>
         router.push({ pathname: '/(home)/book-detail', params: { book: JSON.stringify(book) } })
       }

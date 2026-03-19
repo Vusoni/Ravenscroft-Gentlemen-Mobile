@@ -2,6 +2,7 @@
 import { GlassCard } from '@/components/GlassCard';
 import { TAB_BAR_BOTTOM_OFFSET } from '@/components/GlassTabBar';
 import { useJournalStore } from '@/store/journalStore';
+import { formatEntryDate, formatEntryTime, getGreeting, getWeekDates, isSameDay } from '@/utils/date';
 import {
   CATEGORY_COLORS,
   CATEGORY_LABELS,
@@ -29,56 +30,12 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import Animated, {
-  FadeIn,
-  FadeInDown,
-  useAnimatedStyle,
-  useSharedValue,
-  withSpring,
-} from 'react-native-reanimated';
+import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
+import { useScaleAnimation } from '@/hooks/useScaleAnimation';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-function getGreeting(): string {
-  const h = new Date().getHours();
-  if (h < 12) return 'Good morning';
-  if (h < 17) return 'Good afternoon';
-  return 'Good evening';
-}
-
-function formatDate(date: Date): string {
-  return date.toLocaleDateString('en-GB', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  });
-}
-
-function formatTime(iso: string): string {
-  return new Date(iso).toLocaleTimeString('en-GB', {
-    hour: 'numeric',
-    minute: '2-digit',
-    hour12: true,
-  });
-}
-
-function isSameDay(a: string, b: string): boolean {
-  return a.slice(0, 10) === b.slice(0, 10);
-}
-
-function getWeekDates(anchor: Date): Date[] {
-  const day = anchor.getDay(); // 0=Sun
-  const start = new Date(anchor);
-  start.setDate(anchor.getDate() - day);
-  return Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(start);
-    d.setDate(start.getDate() + i);
-    return d;
-  });
-}
 
 const DAY_LETTERS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
@@ -128,15 +85,7 @@ function DayCircle({
 
 // ─── Entry card ──────────────────────────────────────────────────────────────
 function EntryCard({ entry, index }: { entry: JournalEntry; index: number }) {
-  const scale = useSharedValue(1);
-  const animStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
-
-  const handlePressIn = () => {
-    scale.value = withSpring(0.97, { damping: 15 });
-  };
-  const handlePressOut = () => {
-    scale.value = withSpring(1, { damping: 15 });
-  };
+  const { animStyle, onPressIn: handlePressIn, onPressOut: handlePressOut } = useScaleAnimation({ pressedScale: 0.97, damping: 15 });
 
   return (
     <Animated.View entering={FadeInDown.delay(60 * index).duration(350)}>
@@ -188,7 +137,7 @@ function EntryCard({ entry, index }: { entry: JournalEntry; index: number }) {
                   {CATEGORY_LABELS[entry.category]}
                 </Text>
               </View>
-              <Text style={styles.entryTime}>{formatTime(entry.createdAt)}</Text>
+              <Text style={styles.entryTime}>{formatEntryTime(entry.createdAt)}</Text>
             </View>
           </View>
         </GlassCard>
@@ -250,10 +199,7 @@ export default function JournalTab() {
   const showRecent = isToday && activeFilter === 'all' && !searchQuery.trim();
 
   // FAB animation
-  const fabScale = useSharedValue(1);
-  const fabStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: fabScale.value }],
-  }));
+  const { animStyle: fabStyle, onPressIn: fabPressIn, onPressOut: fabPressOut } = useScaleAnimation({ pressedScale: 0.88, damping: 14 });
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#EDEDED' }} edges={['top']}>
@@ -268,7 +214,7 @@ export default function JournalTab() {
         {/* ── Greeting ─────────────────────────────── */}
         <Animated.View entering={FadeIn.duration(500)} style={styles.greetingWrap}>
           <Text style={styles.greetingText}>{getGreeting()}</Text>
-          <Text style={styles.greetingDate}>{formatDate(selectedDate)}</Text>
+          <Text style={styles.greetingDate}>{formatEntryDate(selectedDate)}</Text>
         </Animated.View>
 
         {/* ── Week calendar strip ──────────────────── */}
@@ -348,7 +294,7 @@ export default function JournalTab() {
         {filteredEntries.length > 0 ? (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>
-              {isToday ? 'Today' : formatDate(selectedDate).split(',')[0]}
+              {isToday ? 'Today' : formatEntryDate(selectedDate).split(',')[0]}
             </Text>
             {filteredEntries.map((entry, i) => (
               <EntryCard key={entry.id} entry={entry} index={i} />
@@ -386,12 +332,8 @@ export default function JournalTab() {
           fabStyle,
           { bottom: TAB_BAR_BOTTOM_OFFSET + insets.bottom + 16 },
         ]}
-        onPressIn={() => {
-          fabScale.value = withSpring(0.88, { damping: 14 });
-        }}
-        onPressOut={() => {
-          fabScale.value = withSpring(1, { damping: 14 });
-        }}
+        onPressIn={fabPressIn}
+        onPressOut={fabPressOut}
         onPress={() => router.push('/(home)/journal-entry')}
         accessibilityLabel="New journal entry"
       >
