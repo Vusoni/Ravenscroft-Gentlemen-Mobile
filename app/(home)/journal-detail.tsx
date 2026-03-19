@@ -3,10 +3,19 @@ import { useJournalStore } from '@/store/journalStore';
 import {
   CATEGORY_COLORS,
   CATEGORY_LABELS,
-  MOOD_EMOJI,
+  Mood,
 } from '@/types/journal';
 import { router, useLocalSearchParams } from 'expo-router';
-import { ArrowLeft, Pen, Trash2 } from 'lucide-react-native';
+import { ArrowLeft, CloudRain, Meh, Pen, Smile, Sun, Trash2, Zap } from 'lucide-react-native';
+
+type LucideIcon = typeof Sun;
+const MOOD_ICON: Record<Mood, LucideIcon> = {
+  great:     Sun,
+  good:      Smile,
+  neutral:   Meh,
+  difficult: CloudRain,
+  tough:     Zap,
+};
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -105,9 +114,10 @@ export default function JournalDetailScreen() {
           <Text style={styles.dateText}>
             {formatFullDate(entry.createdAt)}
           </Text>
-          {entry.mood && (
-            <Text style={styles.moodEmoji}>{MOOD_EMOJI[entry.mood]}</Text>
-          )}
+          {entry.mood && (() => {
+            const Icon = MOOD_ICON[entry.mood];
+            return <Icon size={18} color="#6B6B6B" strokeWidth={1.5} style={{ marginLeft: 8 }} />;
+          })()}
         </View>
 
         {/* ── Category badge ─────────────────────── */}
@@ -199,7 +209,7 @@ const styles = StyleSheet.create({
     color: '#6B6B6B',
     flex: 1,
   },
-  moodEmoji: { fontSize: 20, marginLeft: 8 },
+
 
   // Category
   categoryBadge: {

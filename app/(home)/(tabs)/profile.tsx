@@ -36,6 +36,7 @@ import {
 import { useCallback, useEffect, useState } from 'react';
 import {
   Alert,
+  Dimensions,
   Image,
   Modal,
   Platform,
@@ -47,6 +48,7 @@ import {
   View,
 } from 'react-native';
 import Animated, {
+  Easing,
   FadeIn,
   FadeInDown,
   FadeInUp,
@@ -56,9 +58,11 @@ import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withDelay,
+  withRepeat,
   withSpring,
   withTiming,
 } from 'react-native-reanimated';
+import Svg, { Path } from 'react-native-svg';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const AnimatedScrollView = Animated.createAnimatedComponent(ScrollView);
@@ -143,6 +147,51 @@ function AnimatedCounter({ target, delay = 0 }: { target: number; delay?: number
   );
 }
 
+// ─── Wave helpers ─────────────────────────────────────────────────────────────
+const SCREEN_W = Dimensions.get('window').width;
+
+/** Quadratic-bezier sine approximation. Returns an SVG path string. */
+function wavePath(totalW: number, amp: number, λ: number, cy: number): string {
+  const n = Math.ceil(totalW / λ) + 1;
+  let d = `M 0 ${cy}`;
+  for (let i = 0; i < n; i++) {
+    const x = i * λ;
+    d += ` Q ${x + λ * 0.25} ${cy - amp} ${x + λ * 0.5} ${cy}`;
+    d += ` Q ${x + λ * 0.75} ${cy + amp} ${x + λ} ${cy}`;
+  }
+  return d;
+}
+
+// ─── Single animated wave ─────────────────────────────────────────────────────
+function BannerWave({
+  h, λ, amp, cy, duration, stroke, strokeWidth, startDelay = 0,
+}: {
+  h: number; λ: number; amp: number; cy: number;
+  duration: number; stroke: string; strokeWidth: number; startDelay?: number;
+}) {
+  const svgW = SCREEN_W + λ * 2;
+  const tx   = useSharedValue(0);
+
+  useEffect(() => {
+    tx.value = withDelay(startDelay, withRepeat(
+      withTiming(-λ, { duration, easing: Easing.linear }),
+      -1, false,
+    ));
+  }, []);
+
+  const style = useAnimatedStyle(() => ({
+    transform: [{ translateX: tx.value }],
+  }));
+
+  return (
+    <Animated.View style={[StyleSheet.absoluteFill, { width: svgW }, style]}>
+      <Svg width={svgW} height={h}>
+        <Path d={wavePath(svgW, amp, λ, cy)} fill="none" stroke={stroke} strokeWidth={strokeWidth} />
+      </Svg>
+    </Animated.View>
+  );
+}
+
 // ─── Banner ───────────────────────────────────────────────────────────────────
 function BannerHeader({ topInset, scrollY }: { topInset: number; scrollY: SharedValue<number> }) {
   const bannerHeight = topInset + 164;
@@ -152,56 +201,44 @@ function BannerHeader({ topInset, scrollY }: { topInset: number; scrollY: Shared
     opacity: interpolate(scrollY.value, [0, 160], [1, 0.6]),
   }));
 
+  const mid  = bannerHeight * 0.56;
+  const high = bannerHeight * 0.38;
+  const low  = bannerHeight * 0.72;
+
   return (
     <Animated.View style={parallaxStyle}>
-      <LinearGradient
-        colors={['#1A1614', '#1C1917', '#252220']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={{ height: bannerHeight, paddingTop: topInset }}
-      >
-        {/* Warm accent gradient overlay */}
+      <View style={{ height: bannerHeight, backgroundColor: '#FFFFFF', overflow: 'hidden' }}>
+
+        {/* ── Waves ─────────────────────────────── */}
+        {/* primary — slow, medium amp */}
+        <BannerWave h={bannerHeight} λ={240} amp={20} cy={mid}  duration={8000} stroke="rgba(10,10,10,0.12)" strokeWidth={0.8} />
+        {/* secondary — faster, tighter */}
+        <BannerWave h={bannerHeight} λ={160} amp={12} cy={high} duration={5500} stroke="rgba(10,10,10,0.06)" strokeWidth={0.5} startDelay={400} />
+        {/* tertiary — slowest, widest swing */}
+        <BannerWave h={bannerHeight} λ={320} amp={28} cy={low}  duration={11000} stroke="rgba(10,10,10,0.04)" strokeWidth={1.0} startDelay={1200} />
+
+        {/* ── Bottom fade ───────────────────────── */}
         <LinearGradient
-          colors={['rgba(212,184,150,0.08)', 'transparent', 'rgba(212,184,150,0.04)']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={StyleSheet.absoluteFill}
+          colors={['transparent', 'rgba(237,237,237,0.4)', '#EDEDED']}
+          style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 52 }}
         />
 
-        {/* Subtle diagonal lines pattern */}
-        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, overflow: 'hidden', opacity: 0.03 }}>
-          {[0, 1, 2, 3, 4, 5, 6].map((i) => (
-            <View
-              key={i}
-              style={{
-                position: 'absolute',
-                top: -40 + i * 36,
-                left: -20,
-                right: -20,
-                height: 1,
-                backgroundColor: '#D4B896',
-                transform: [{ rotate: '-35deg' }],
-              }}
-            />
-          ))}
-        </View>
-
-        {/* Top row */}
+        {/* ── Top row ───────────────────────────── */}
         <Animated.View
-          entering={FadeIn.delay(100).duration(500)}
+          entering={FadeIn.delay(100).duration(600)}
           style={{
             flexDirection: 'row',
             alignItems: 'center',
             justifyContent: 'space-between',
             paddingHorizontal: 24,
-            paddingTop: 18,
+            paddingTop: topInset + 18,
           }}
         >
           <Text style={{
             fontFamily: 'PlayfairDisplay_700Bold',
-            fontSize: 11,
-            letterSpacing: 3,
-            color: 'rgba(212, 184, 150, 0.5)',
+            fontSize: 10,
+            letterSpacing: 3.5,
+            color: 'rgba(10,10,10,0.30)',
             textTransform: 'uppercase',
           }}>
             My Profile
@@ -209,21 +246,18 @@ function BannerHeader({ topInset, scrollY }: { topInset: number; scrollY: Shared
           <Pressable
             hitSlop={12}
             style={({ pressed }) => ({
-              opacity: pressed ? 0.5 : 1,
-              width: 32,
-              height: 32,
-              borderRadius: 16,
+              opacity: pressed ? 0.4 : 1,
+              width: 32, height: 32, borderRadius: 16,
               borderWidth: 1,
-              borderColor: 'rgba(212,184,150,0.18)',
-              backgroundColor: 'rgba(212,184,150,0.06)',
-              alignItems: 'center',
-              justifyContent: 'center',
+              borderColor: 'rgba(10,10,10,0.10)',
+              backgroundColor: 'rgba(10,10,10,0.04)',
+              alignItems: 'center', justifyContent: 'center',
             })}
           >
-            <MoreHorizontal size={15} color="rgba(212,184,150,0.5)" strokeWidth={1.8} />
+            <MoreHorizontal size={15} color="rgba(10,10,10,0.30)" strokeWidth={1.8} />
           </Pressable>
         </Animated.View>
-      </LinearGradient>
+      </View>
     </Animated.View>
   );
 }
@@ -250,9 +284,9 @@ function FloatingAvatar({ initials, photoUri, onPickPhoto }: { initials: string;
       borderRadius: 42,
     }, animStyle]}>
       <Pressable onPress={onPickPhoto}>
-        {/* Gradient shimmer ring */}
+        {/* Ring */}
         <LinearGradient
-          colors={['#D4B896', 'rgba(212,184,150,0.35)', '#D4B896']}
+          colors={['#1C1C1C', 'rgba(28,28,28,0.30)', '#1C1C1C']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={{
@@ -390,18 +424,18 @@ function UserIdentity({ interests, photoUri, onPickPhoto, onEditProfile }: { int
           alignItems: 'center',
           gap: 5,
           borderWidth: 1,
-          borderColor: 'rgba(212,184,150,0.6)',
+          borderColor: 'rgba(0,0,0,0.14)',
           borderRadius: 20,
           paddingHorizontal: 10,
           paddingVertical: 4,
-          backgroundColor: 'rgba(212,184,150,0.08)',
+          backgroundColor: 'rgba(0,0,0,0.04)',
         }}
       >
-        <View style={{ width: 5, height: 5, borderRadius: 3, backgroundColor: '#D4B896' }} />
+        <View style={{ width: 5, height: 5, borderRadius: 3, backgroundColor: '#1C1C1C' }} />
         <Text style={{
           fontSize: 9,
           fontFamily: 'PlayfairDisplay_700Bold',
-          color: '#D4B896',
+          color: '#1C1C1C',
           letterSpacing: 1.8,
         }}>
           GENTLEMAN
@@ -750,8 +784,8 @@ function StreakRow() {
     >
       <GlassCard intensity={46} borderRadius={22} fillColor="rgba(255,255,255,0.58)">
         <View style={{ overflow: 'hidden', borderRadius: 22, flexDirection: 'row', alignItems: 'center' }}>
-          {/* Gold left accent */}
-          <View style={{ width: 3, height: '100%', backgroundColor: '#D4B896', position: 'absolute', left: 0 }} />
+          {/* Left accent */}
+          <View style={{ width: 3, height: '100%', backgroundColor: '#0A0A0A', position: 'absolute', left: 0 }} />
           <View style={{
             flex: 1,
             flexDirection: 'row',
@@ -759,7 +793,7 @@ function StreakRow() {
             paddingHorizontal: 20,
             paddingVertical: 15,
           }}>
-            <Flame size={15} color="#D4B896" strokeWidth={1.5} />
+            <Flame size={15} color="#0A0A0A" strokeWidth={1.5} />
             <Text style={{
               flex: 1,
               fontSize: 14,
@@ -1134,8 +1168,9 @@ const profileStyles = StyleSheet.create({
     borderRadius: 24,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.88)',
-    paddingHorizontal: 24,
-    paddingVertical: 11,
+    paddingHorizontal: 28,
+    paddingVertical: 14,
+    minWidth: 140,
     backgroundColor: Platform.select({
       ios: 'transparent',
       android: 'rgba(255,255,255,0.72)',
@@ -1146,10 +1181,11 @@ const profileStyles = StyleSheet.create({
     borderRadius: 24,
   },
   editBtnLabel: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '500',
     color: '#1C1C1C',
-    letterSpacing: 0.3,
+    letterSpacing: 0.4,
+    textAlign: 'center',
   },
   chip: {
     overflow: 'hidden',

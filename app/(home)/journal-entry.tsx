@@ -7,11 +7,19 @@ import {
   JournalCategory,
   JournalEntry,
   Mood,
-  MOOD_EMOJI,
   MOOD_LABEL,
 } from '@/types/journal';
 import { router, useLocalSearchParams } from 'expo-router';
-import { X } from 'lucide-react-native';
+import { CloudRain, Meh, Smile, Sun, X, Zap } from 'lucide-react-native';
+
+type LucideIcon = typeof Sun;
+const MOOD_ICON: Record<Mood, LucideIcon> = {
+  great:     Sun,
+  good:      Smile,
+  neutral:   Meh,
+  difficult: CloudRain,
+  tough:     Zap,
+};
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   KeyboardAvoidingView,
@@ -134,26 +142,31 @@ export default function JournalEntryScreen() {
           <View style={styles.moodSection}>
             <Text style={styles.sectionLabel}>How are you feeling?</Text>
             <View style={styles.moodRow}>
-              {MOODS.map((m) => (
-                <Pressable
-                  key={m}
-                  onPress={() => setMood(mood === m ? undefined : m)}
-                  style={[
-                    styles.moodPill,
-                    mood === m && styles.moodPillActive,
-                  ]}
-                >
-                  <Text style={styles.moodEmoji}>{MOOD_EMOJI[m]}</Text>
-                  <Text
-                    style={[
-                      styles.moodLabel,
-                      mood === m && styles.moodLabelActive,
-                    ]}
+              {MOODS.map((m) => {
+                const Icon = MOOD_ICON[m];
+                const active = mood === m;
+                return (
+                  <Pressable
+                    key={m}
+                    onPress={() => setMood(active ? undefined : m)}
+                    style={[styles.moodPill, active && styles.moodPillActive]}
                   >
-                    {MOOD_LABEL[m]}
-                  </Text>
-                </Pressable>
-              ))}
+                    <Icon
+                      size={14}
+                      color={active ? '#EDEDED' : '#6B6B6B'}
+                      strokeWidth={1.6}
+                    />
+                    <Text
+                      style={[
+                        styles.moodLabel,
+                        active && styles.moodLabelActive,
+                      ]}
+                    >
+                      {MOOD_LABEL[m]}
+                    </Text>
+                  </Pressable>
+                );
+              })}
             </View>
           </View>
 
@@ -280,7 +293,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#0A0A0A',
     borderColor: '#0A0A0A',
   },
-  moodEmoji: { fontSize: 14 },
   moodLabel: {
     fontFamily: 'PlayfairDisplay_400Regular',
     fontSize: 12,
