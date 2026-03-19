@@ -104,30 +104,66 @@ function gbCoverUrl(item: GBVolume): string | undefined {
     .replace('&edge=curl', '');
 }
 
+const GB_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_BOOKS_API_KEY ?? '';
+
+function buildGBUrl(q: string, offset: number): string {
+  const base = `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(q)}&startIndex=${offset}&maxResults=20&orderBy=relevance&printType=books`;
+  return GB_API_KEY ? `${base}&key=${GB_API_KEY}` : base;
+}
+
+function mapGBItems(items: GBVolume[]): Book[] {
+  return items.map((item) => ({
+    id: item.id,
+    title: item.volumeInfo.title,
+    author: item.volumeInfo.authors?.[0] ?? 'Unknown',
+    coverUrl: gbCoverUrl(item),
+    pageCount: item.volumeInfo.pageCount,
+    genre: item.volumeInfo.categories?.[0],
+    description: item.volumeInfo.description,
+  }));
+}
+
 async function searchGoogleBooks(
   query: string,
   offset: number = 0,
   signal?: AbortSignal,
 ): Promise<{ books: Book[]; total: number }> {
-  const res = await fetch(
-    `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(query)}&startIndex=${offset}&maxResults=20&orderBy=relevance`,
-    { signal: signal ?? AbortSignal.timeout(8000) },
-  );
-  if (!res.ok) throw new Error(`GB ${res.status}`);
-  const data: GBResponse = await res.json();
-  const items = data.items ?? [];
-  const books = items
-    .filter((item) => gbCoverUrl(item))
-    .map((item) => ({
-      id: item.id,
-      title: item.volumeInfo.title,
-      author: item.volumeInfo.authors?.[0] ?? 'Unknown',
-      coverUrl: gbCoverUrl(item),
-      pageCount: item.volumeInfo.pageCount,
-      genre: item.volumeInfo.categories?.[0],
-      description: item.volumeInfo.description,
-    }));
-  return { books, total: data.totalItems ?? 0 };
+  const timeout = signal ?? AbortSignal.timeout(10000);
+
+  // Run a general query + an inauthor: query in parallel for the first page
+  // so author searches (e.g. "Ryan Holiday") return proper results.
+  const authorQuery = `inauthor:"${query}"`;
+  const [generalRes, authorRes] = await Promise.allSettled([
+    fetch(buildGBUrl(query, offset), { signal: timeout }),
+    // Only run the author query on the first page to avoid duplicate pagination
+    offset === 0 ? fetch(buildGBUrl(authorQuery, 0), { signal: timeout }) : Promise.resolve(null),
+  ]);
+
+  if (generalRes.status === 'rejected') throw new Error('Search failed');
+
+  const generalData: GBResponse = await (generalRes.value as Response).json();
+  const generalItems = generalData.items ?? [];
+
+  let authorItems: GBVolume[] = [];
+  if (authorRes.status === 'fulfilled' && authorRes.value) {
+    try {
+      const authorData: GBResponse = await (authorRes.value as Response).json();
+      authorItems = authorData.items ?? [];
+    } catch { /* silent */ }
+  }
+
+  // Merge: author results first (more relevant for author queries), then general
+  const seen = new Set<string>();
+  const merged: GBVolume[] = [];
+  for (const item of [...authorItems, ...generalItems]) {
+    if (!seen.has(item.id)) {
+      seen.add(item.id);
+      merged.push(item);
+    }
+  }
+
+  const books = mapGBItems(merged);
+  return { books, total: Math.max(generalData.totalItems ?? 0, books.length) };
 }
 
 async function fetchTrendingBooks(): Promise<Book[]> {

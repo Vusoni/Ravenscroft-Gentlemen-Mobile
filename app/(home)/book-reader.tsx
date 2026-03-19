@@ -40,7 +40,7 @@ import Animated, {
   withSpring,
   withTiming,
 } from 'react-native-reanimated';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 // ─── Theme & font config ─────────────────────────────────────────────────────
 
@@ -322,6 +322,7 @@ export default function BookReaderScreen() {
   const params = useLocalSearchParams<{ book: string }>();
   const book: Book = JSON.parse(params.book);
 
+  const insets = useSafeAreaInsets();
   const { getReadingProgress, setReadingProgress } = useBooksStore();
   const { addNote, hydrate: hydrateNotes } = useNotesStore();
 
@@ -683,7 +684,7 @@ export default function BookReaderScreen() {
         ) : null}
 
         {/* Floating pill toolbar */}
-        <Animated.View style={[styles.toolbarContainer, controlsAnimStyle]} pointerEvents="box-none">
+        <Animated.View style={[styles.toolbarContainer, { paddingBottom: insets.bottom + 16 }, controlsAnimStyle]} pointerEvents="box-none">
           {/* Back to previous position */}
           {prevPageIndex !== null ? (
             <Pressable
@@ -1055,7 +1056,6 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     paddingHorizontal: 16,
-    paddingBottom: 12,
     paddingTop: 8,
     zIndex: 25,
   },
