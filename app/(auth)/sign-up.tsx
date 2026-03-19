@@ -175,6 +175,7 @@ export default function SignUp() {
   const { startSSOFlow } = useSSO();
   const { startAppleAuthenticationFlow } = useSignInWithApple();
   const checkOnboardingStatus = useOnboardingStore((s) => s.checkOnboardingStatus);
+  const resetOnboarding = useOnboardingStore((s) => s.resetOnboarding);
 
   const buttonScale = useSharedValue(1);
   const secondaryScale = useSharedValue(1);
@@ -259,6 +260,7 @@ export default function SignUp() {
     });
     setIsLoading(true);
     try {
+      await resetOnboarding();
       const result = await signUp.create({
         emailAddress: cleanEmail,
         password,
@@ -266,7 +268,7 @@ export default function SignUp() {
       });
       if (result.status === 'complete') {
         await setActive!({ session: result.createdSessionId });
-        await navigateAfterAuth();
+        router.replace('/(onboarding)');
       } else {
         // Email verification required
         await signUp.prepareEmailAddressVerification({ strategy: 'email_code' });
@@ -291,7 +293,7 @@ export default function SignUp() {
       const result = await signUp.attemptEmailAddressVerification({ code });
       if (result.status === 'complete') {
         await setActive!({ session: result.createdSessionId });
-        await navigateAfterAuth();
+        router.replace('/(onboarding)');
       } else {
         setError('Verification incomplete. Please try again.');
         triggerShake();

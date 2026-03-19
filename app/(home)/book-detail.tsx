@@ -125,10 +125,7 @@ export default function BookDetailScreen() {
           <View style={[styles.cover, { backgroundColor: coverColor(book.id) }]}>
             {coverUrl ? (
               <Image
-                source={[
-                  { uri: coverUrl },
-                  ...(book.id.startsWith('OL') ? [{ uri: `https://covers.openlibrary.org/b/olid/${book.id}-L.jpg` }] : []),
-                ]}
+                source={{ uri: coverUrl }}
                 style={styles.coverImage}
                 contentFit="cover"
                 transition={200}

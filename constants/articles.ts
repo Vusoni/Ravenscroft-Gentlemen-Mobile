@@ -7,7 +7,11 @@ export type ArticleCategory =
   | 'Travel'
   | 'Grooming'
   | 'Fitness'
-  | 'Watches';
+  | 'Watches'
+  | 'Business'
+  | 'Mindset'
+  | 'Wealth'
+  | 'Strategy';
 
 export interface Article {
   id: string;
@@ -22,72 +26,6 @@ export interface Article {
 }
 
 export const ARTICLES: Article[] = [
-  {
-    id: 'discipline-of-morning',
-    category: 'Stoicism',
-    date: '06 Mar 2026',
-    readTime: '8 min',
-    title: 'The Discipline of Morning: How Great Men Begin Their Day.',
-    image: 'https://images.unsplash.com/photo-1484627147104-f5197bcd6651?auto=format&fit=crop&w=800&q=80',
-    excerpt:
-      'The Stoics were not simply philosophers. They were practitioners. Marcus Aurelius rose before dawn not because he wanted to, but because he chose to — and in that distinction lies everything.',
-    body: [
-      'The Stoics were not simply philosophers. They were practitioners. Marcus Aurelius rose before dawn not because he wanted to, but because he chose to — and in that distinction lies everything.',
-      'Modern life conspires against the morning. Notifications, obligations, and the seductive pull of an extra hour in bed all conspire to delay the hour of genuine consciousness. The Stoics understood this was a battle to be fought daily.',
-      'The morning represents a philosophical frontier. It is the one period in the day that remains largely uncontested by the demands of others — before the inbox, before the calls, before the machine of social obligation begins to grind. Squander it, and the day belongs to circumstance. Command it, and the day belongs to you.',
-      'Marcus wrote to himself: "Begin the morning by saying to thyself, I shall meet with the busy-body, the ungrateful, arrogant, deceitful, envious, unsocial." This was not pessimism. It was preparation — the same rational steeling that a soldier applies before entering the field.',
-      'A morning practice does not require elaborate ritual. It requires only a moment of intentional silence before the noise begins. A single page of philosophy. Five minutes of stillness. The act of choosing how the day begins, rather than allowing the day to choose for you.',
-    ],
-    summary: [
-      'Morning rituals are a form of philosophical practice, not mere productivity optimisation.',
-      'Intentional early rising creates a window of uncontested solitude that primes the mind for clarity.',
-      'The quality of a day is largely determined before the first obligation begins.',
-    ],
-  },
-  {
-    id: 'art-makers',
-    category: 'Culture',
-    date: '01 Mar 2026',
-    readTime: '15 min',
-    title: 'Art Makers and Rule Breakers for a Gentleman\'s Cultural Showcase.',
-    image: 'https://images.unsplash.com/photo-1579783902614-a3fb3927b6a5?auto=format&fit=crop&w=800&q=80',
-    excerpt:
-      "A collision of worlds; a dance of contrasts — a harmonious disarray. Culture is not a passive inheritance — it is an active discipline that elevates every decision.",
-    body: [
-      "Culture is not something you inherit passively. It is something you engage, challenge, and ultimately contribute to — a discipline of perpetual refinement.",
-      "The modern gentleman understands that to engage with art is to sharpen perception, expand empathy, and cultivate the kind of refined judgment that elevates every decision. It is not enough to consume culture; one must interrogate it.",
-      "We are drawn to contradictions — the Art students who opened a Swiss Design Studio in the back of a Skate Shop. The Hemingway who wrote in cafés and lived in the wild. The philosopher-king who governed by day and wrote by night. It is in contradiction that character reveals itself.",
-      "The gentleman who attends openings, reads criticism, and forms his own considered opinions is not performing sophistication. He is building the cognitive infrastructure that makes genuine original thought possible.",
-      "Great art does not comfort us. It discomforts us productively — it presents the world at an angle we had not considered, and invites us to see ourselves more clearly as a result.",
-    ],
-    summary: [
-      'Cultural engagement sharpens perception and cultivates the judgment that elevates everyday decisions.',
-      'The gentleman engages with art not to perform sophistication but to develop original thought.',
-      'Great culture discomforts productively — it presents the world at an angle we had not considered.',
-    ],
-  },
-  {
-    id: 'virtue-of-silence',
-    category: 'Philosophy',
-    date: '25 Feb 2026',
-    readTime: '6 min',
-    title: 'On the Virtue of Silence in a World That Rewards Noise.',
-    image: 'https://images.unsplash.com/photo-1519167758481-83f550bb49b3?auto=format&fit=crop&w=800&q=80',
-    excerpt:
-      'In antiquity, silence was considered a mark of wisdom. Today we mistake verbosity for intelligence, and volume for confidence. The gentleman reacquaints himself with restraint.',
-    body: [
-      'In antiquity, silence was considered a mark of wisdom. Today we mistake verbosity for intelligence, and volume for confidence. The noise is everywhere — in meetings, on feeds, in conversations that mistake quantity of words for quality of thought.',
-      'The Pythagoreans required students to observe five years of silence before they were permitted to speak in philosophical discourse. This was not cruelty. It was the recognition that most of what we say is noise dressed as signal.',
-      'Consider the man who speaks least in the room. He is often assumed, incorrectly, to have least to offer. The experienced observer knows otherwise. The man who chooses his words is the man who has weighed them. His silence is not absence — it is active, disciplined attention to what is actually worth saying.',
-      'Strategic reticence commands more respect than constant commentary. Speak when you have something to add. Hold your counsel when you do not. The discipline required is considerable. The returns are proportionate.',
-      'One practice: before speaking in any significant context, pause for three seconds. Ask whether what you are about to say improves upon the silence. You will be surprised how often the answer is no.',
-    ],
-    summary: [
-      'Silence is not passivity — it is active, disciplined attention to what is actually worth saying.',
-      'The compulsive need to fill space with words signals insecurity, not authority.',
-      'Strategic reticence commands more respect than constant commentary.',
-    ],
-  },
   {
     id: 'well-dressed-mind',
     category: 'Style',
@@ -116,7 +54,7 @@ export const ARTICLES: Article[] = [
     date: '14 Feb 2026',
     readTime: '12 min',
     title: 'Reading Marcus Aurelius in 2026: What the Emperor Still Teaches Us.',
-    image: 'https://images.unsplash.com/photo-1544947950-fa07a98d237f?auto=format&fit=crop&w=800&q=80',
+    image: 'https://images.unsplash.com/photo-C_QAc_bfea8?auto=format&fit=crop&w=800&q=80',
     excerpt:
       "The Meditations were never meant to be published. They were private reminders from a man who held the fate of an empire — and still worried he wasn't doing enough. That honesty is what makes them timeless.",
     body: [
@@ -243,28 +181,6 @@ export const ARTICLES: Article[] = [
     ],
   },
   {
-    id: 'cold-exposure',
-    category: 'Fitness',
-    date: '28 Feb 2026',
-    readTime: '8 min',
-    title: 'The Cold and the Composed: On Discomfort as a Daily Practice.',
-    image: 'https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?auto=format&fit=crop&w=800&q=80',
-    excerpt:
-      'The Stoics practised voluntary discomfort — sleeping on hard floors, wearing thin cloaks in winter — not as asceticism but as preparation. The man who has already been cold is not afraid of the cold.',
-    body: [
-      'The Stoics practised voluntary discomfort — sleeping on hard floors, wearing thin cloaks in winter, fasting periodically — not as asceticism but as inoculation. The man who has already been cold is not afraid of the cold. He has removed the power it held over him.',
-      'Cold exposure — whether in the form of cold showers, cold water immersion, or simply time spent outdoors in winter without excess insulation — is one of the most efficient methods of building physiological and psychological resilience available without specialist equipment.',
-      'The mechanism is straightforward: the body responds to cold stress by activating its adaptive systems. Norepinephrine increases. Brown adipose tissue is recruited. Over time, the threshold of what the system regards as threatening rises. What was once intolerable becomes manageable. What was manageable becomes unremarkable.',
-      'But the more important adaptation is psychological. The cold shower is a microcosm of every difficult thing you will be asked to do today. You do not want to do it. You do it anyway. You survive it. The accumulated experience of doing things you do not want to do builds a specific kind of self-knowledge: the knowledge that the wanting and the doing are separate, and that you control the second regardless of the first.',
-      'Start with thirty seconds. End every shower cold. Add time gradually. The practice costs nothing and teaches everything that matters about the relationship between discomfort and discipline.',
-    ],
-    summary: [
-      'Voluntary discomfort is inoculation — the man who has been cold is not afraid of the cold.',
-      'Cold exposure builds resilience at both the physiological and psychological level simultaneously.',
-      'The cold shower is a daily rehearsal of a fundamental lesson: the wanting and the doing are separate.',
-    ],
-  },
-  {
     id: 'classical-music',
     category: 'Culture',
     date: '22 Feb 2026',
@@ -306,50 +222,6 @@ export const ARTICLES: Article[] = [
       'Skin care is maintenance, not vanity — the rational approach to the most visible indicator of how a man is living.',
       'Four products, four minutes — the fundamentals require no more.',
       'SPF daily is the single most impactful anti-ageing intervention available. The science is unambiguous.',
-    ],
-  },
-  {
-    id: 'epictetus-freedom',
-    category: 'Stoicism',
-    date: '12 Feb 2026',
-    readTime: '9 min',
-    title: 'Epictetus and the Paradox of Freedom: How a Slave Became the Freest Man in Rome.',
-    image: 'https://images.unsplash.com/photo-1470770841072-f978cf4d019e?auto=format&fit=crop&w=800&q=80',
-    excerpt:
-      'Epictetus was owned by a man who broke his leg for sport. He responded not with rage but with equanimity — and in doing so demonstrated a freedom that his master could never possess.',
-    body: [
-      'Epictetus was owned by a man who broke his leg for sport. The story goes that as his master twisted his leg, Epictetus said calmly: "You are going to break it." When it broke, he observed: "Did I not tell you that you would break it?" He responded not with rage but with equanimity — and in doing so demonstrated a freedom his master could never possess.',
-      'The Stoic distinction between what is "up to us" and what is "not up to us" is the engine of all Stoic philosophy. Epictetus frames it in the first paragraph of the Enchiridion: our opinions, impulses, desires, and aversions are up to us. Everything else — body, property, reputation, command — is not. This is not resignation. It is radical liberation.',
-      'The man who ties his emotional state to external outcomes has handed his freedom to external events. The promotion, the opinion of others, the behaviour of his competitors — he has made himself hostage to all of it. The man who understands the Stoic distinction has withdrawn his consent to be governed by what he cannot control.',
-      'This is the most demanding philosophy ever articulated. It asks you to feel fully while remaining unmoved by what you feel. Not suppression — that is the amateur\'s misreading. Processing, evaluating, and choosing how to respond is the practice. Emotion is acknowledged; it simply does not drive the car.',
-      'Read the Enchiridion. It is fifty-three paragraphs. You can read it in an hour. Return to it every year. The paragraphs you underline will change with each decade of your life.',
-    ],
-    summary: [
-      'Epictetus\'s philosophy emerged from the most constrained circumstances imaginable — and produced the most radical freedom.',
-      'The Stoic distinction between what is and is not "up to us" is not resignation — it is the mechanism of genuine liberation.',
-      'Stoic practice is not the suppression of emotion. It is the choice of how to respond to emotion, made after honest evaluation.',
-    ],
-  },
-  {
-    id: 'florence-beauty',
-    category: 'Travel',
-    date: '05 Feb 2026',
-    readTime: '12 min',
-    title: 'Florence and the Education of the Eye: What the Renaissance Still Teaches.',
-    image: 'https://images.unsplash.com/photo-1541430870741-e1d0b7b5e3b1?auto=format&fit=crop&w=800&q=80',
-    excerpt:
-      'Florence is not a museum. It is an argument — a six-hundred-year case study in what human beings are capable of when patronage, ambition, and genius align in the same city at the same time.',
-    body: [
-      'Florence is not a museum. It is an argument — a six-hundred-year case study in what human beings are capable of when patronage, ambition, and genius align in the same city at the same moment in history. Walking its streets is not tourism. It is education.',
-      'The Uffizi contains more masterworks per square metre than any other building on earth. But the correct approach is not to attempt its totality. Choose five paintings. Sit in front of each for ten minutes. Botticelli\'s Primavera alone contains enough visual information to occupy an attentive man for an afternoon. The error is to try to see everything and end up seeing nothing.',
-      'The Renaissance gentleman was a specific archetype — the uomo universale — the man who pursued excellence across multiple domains simultaneously. Painting, poetry, mathematics, philosophy, horsemanship, music. Not because he wanted to be impressive, but because he believed that beauty and truth were related, and that the pursuit of either required a broadly cultivated intelligence.',
-      'That archetype is available to us. The domains have changed — the modern equivalents of horsemanship and Latin are different — but the underlying philosophy, that a man should develop himself across multiple dimensions of excellence, remains the most complete vision of a lived human life.',
-      'Go to Florence before you go anywhere else. Go before you think you are ready. The city will educate you faster than any curriculum.',
-    ],
-    summary: [
-      'Florence is an argument about what human ambition, at its best, can produce — not a museum to be passively consumed.',
-      'The Renaissance uomo universale pursued excellence across multiple domains — and this archetype remains available to us.',
-      'Go before you think you are ready. The city educates faster than any formal curriculum.',
     ],
   },
   {
@@ -408,4 +280,16 @@ export const ARTICLE_CATEGORIES: ArticleCategory[] = [
   'Grooming',
   'Fitness',
   'Watches',
+];
+
+export const LIVE_ARTICLE_CATEGORIES: ArticleCategory[] = [
+  'Business',
+  'Mindset',
+  'Wealth',
+  'Strategy',
+];
+
+export const ALL_FEED_CATEGORIES: ArticleCategory[] = [
+  ...ARTICLE_CATEGORIES,
+  ...LIVE_ARTICLE_CATEGORIES,
 ];
