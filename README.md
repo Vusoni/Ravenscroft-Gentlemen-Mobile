@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="./Design/Ravenscroft.png" alt="Ravenscroft" width="120" />
+  <img src="https://raw.githubusercontent.com/Vusoni/Ravenscroft-Gentlemen-Mobile/ec26efb64a607556e595efe81c25aec52c5ae37c/Design/Ravenscroft.png" alt="Ravenscroft" width="120" />
 
   <h1>Ravenscroft</h1>
   <p><em>"You already know the man you should be."</em></p>
@@ -22,34 +22,11 @@
 
 ## Overview
 
-![Ravenscroft Screens](./Design/overview.png)
-
 Ravenscroft is a private club for intellectual growth — combining hand-picked classic books (Project Gutenberg · Open Library · Google Books), a Claude-powered literary assistant, stoic philosophy, and editorial content into one cohesive, premium iOS experience.
 
 **Target user**: Men 25–45 interested in self-improvement, classic literature, Stoicism, Marcus Aurelius, Ryan Holiday, Robert Greene.
 
 **What makes it different**: The aesthetic. Every screen feels like holding a leather-bound book. No clutter, no gamification, no streaks — quiet, purposeful design.
-
----
-
-## Screenshots
-
-<div align="center">
-  <table>
-    <tr>
-      <td><img src="./Design/screens/onboarding.png" width="180"/></td>
-      <td><img src="./Design/screens/books.png" width="180"/></td>
-      <td><img src="./Design/screens/reader.png" width="180"/></td>
-      <td><img src="./Design/screens/assistant.png" width="180"/></td>
-    </tr>
-    <tr>
-      <td align="center"><sub>Onboarding</sub></td>
-      <td align="center"><sub>Library</sub></td>
-      <td align="center"><sub>Reader</sub></td>
-      <td align="center"><sub>AI Assistant</sub></td>
-    </tr>
-  </table>
-</div>
 
 ---
 
