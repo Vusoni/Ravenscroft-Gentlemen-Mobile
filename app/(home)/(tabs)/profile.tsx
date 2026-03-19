@@ -1168,8 +1168,9 @@ const profileStyles = StyleSheet.create({
     borderRadius: 24,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.88)',
-    paddingHorizontal: 24,
-    paddingVertical: 11,
+    paddingHorizontal: 28,
+    paddingVertical: 14,
+    minWidth: 140,
     backgroundColor: Platform.select({
       ios: 'transparent',
       android: 'rgba(255,255,255,0.72)',
@@ -1180,10 +1181,11 @@ const profileStyles = StyleSheet.create({
     borderRadius: 24,
   },
   editBtnLabel: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '500',
     color: '#1C1C1C',
-    letterSpacing: 0.3,
+    letterSpacing: 0.4,
+    textAlign: 'center',
   },
   chip: {
     overflow: 'hidden',

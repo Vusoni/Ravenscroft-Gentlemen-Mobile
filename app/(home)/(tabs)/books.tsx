@@ -46,19 +46,23 @@ const COVER_H_LIBRARY = CARD_W * 1.65;
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 // ─── Curated fallback ─────────────────────────────────────────────────────────
+// Cover URLs use Open Library ISBN covers as reliable static fallbacks.
+// fetchTrendingBooks() fetches these same titles from Google Books and may replace this list.
+const OL_COVER = (isbn: string) => `https://covers.openlibrary.org/b/isbn/${isbn}-L.jpg`;
+
 const CURATED_FALLBACK: Book[] = [
-  { id: 'OL45804W',   title: 'Meditations',                  author: 'Marcus Aurelius',     genre: 'Philosophy',  pageCount: 254,  coverUrl: 'https://covers.openlibrary.org/b/olid/OL45804W-L.jpg' },
-  { id: 'OL66768W',   title: 'The Old Man and the Sea',       author: 'Ernest Hemingway',    genre: 'Literature',  pageCount: 127,  coverUrl: 'https://covers.openlibrary.org/b/olid/OL66768W-L.jpg' },
-  { id: 'OL18098W',   title: "Man's Search for Meaning",      author: 'Viktor Frankl',       genre: 'Psychology',  pageCount: 165,  coverUrl: 'https://covers.openlibrary.org/b/olid/OL18098W-L.jpg' },
-  { id: 'OL468431W',  title: 'The Great Gatsby',              author: 'F. Scott Fitzgerald', genre: 'Fiction',     pageCount: 180,  coverUrl: 'https://covers.openlibrary.org/b/olid/OL468431W-L.jpg' },
-  { id: 'OL15404W',   title: 'Letters from a Stoic',          author: 'Seneca',              genre: 'Philosophy',  pageCount: 256,  coverUrl: 'https://covers.openlibrary.org/b/olid/OL15404W-L.jpg' },
-  { id: 'OL49236W',   title: 'The Picture of Dorian Gray',    author: 'Oscar Wilde',         genre: 'Fiction',     pageCount: 254,  coverUrl: 'https://covers.openlibrary.org/b/olid/OL49236W-L.jpg' },
-  { id: 'OL8098828W', title: 'Crime and Punishment',          author: 'Fyodor Dostoevsky',   genre: 'Fiction',     pageCount: 671,  coverUrl: 'https://covers.openlibrary.org/b/olid/OL8098828W-L.jpg' },
-  { id: 'OL57553W',   title: 'Thus Spoke Zarathustra',        author: 'Friedrich Nietzsche', genre: 'Philosophy',  pageCount: 336,  coverUrl: 'https://covers.openlibrary.org/b/olid/OL57553W-L.jpg' },
-  { id: 'OL71490W',   title: 'Walden',                        author: 'Henry David Thoreau', genre: 'Essays',      pageCount: 224,  coverUrl: 'https://covers.openlibrary.org/b/olid/OL71490W-L.jpg' },
-  { id: 'OL35233W',   title: 'The Count of Monte Cristo',     author: 'Alexandre Dumas',     genre: 'Fiction',     pageCount: 1276, coverUrl: 'https://covers.openlibrary.org/b/olid/OL35233W-L.jpg' },
-  { id: 'OL15403W',   title: 'On the Shortness of Life',      author: 'Seneca',              genre: 'Philosophy',  pageCount: 97,   coverUrl: 'https://covers.openlibrary.org/b/olid/OL15403W-L.jpg' },
-  { id: 'OL22025W',   title: 'The Art of War',                author: 'Sun Tzu',             genre: 'Strategy',    pageCount: 112,  coverUrl: 'https://covers.openlibrary.org/b/olid/OL22025W-L.jpg' },
+  { id: 'OL45804W',   title: 'Meditations',               author: 'Marcus Aurelius',     genre: 'Philosophy',  pageCount: 254,  coverUrl: OL_COVER('0812968255') },
+  { id: 'OL66768W',   title: 'The Old Man and the Sea',    author: 'Ernest Hemingway',    genre: 'Literature',  pageCount: 127,  coverUrl: OL_COVER('0684801221') },
+  { id: 'OL18098W',   title: "Man's Search for Meaning",   author: 'Viktor Frankl',       genre: 'Psychology',  pageCount: 165,  coverUrl: OL_COVER('0807014273') },
+  { id: 'OL468431W',  title: 'The Great Gatsby',           author: 'F. Scott Fitzgerald', genre: 'Fiction',     pageCount: 180,  coverUrl: OL_COVER('0743273567') },
+  { id: 'OL15404W',   title: 'Letters from a Stoic',       author: 'Seneca',              genre: 'Philosophy',  pageCount: 256,  coverUrl: OL_COVER('0140442103') },
+  { id: 'OL49236W',   title: 'The Picture of Dorian Gray', author: 'Oscar Wilde',         genre: 'Fiction',     pageCount: 254,  coverUrl: OL_COVER('0141439572') },
+  { id: 'OL8098828W', title: 'Crime and Punishment',       author: 'Fyodor Dostoevsky',   genre: 'Fiction',     pageCount: 671,  coverUrl: OL_COVER('0140449132') },
+  { id: 'OL57553W',   title: 'Thus Spoke Zarathustra',     author: 'Friedrich Nietzsche', genre: 'Philosophy',  pageCount: 336,  coverUrl: OL_COVER('0140441182') },
+  { id: 'OL71490W',   title: 'Walden',                     author: 'Henry David Thoreau', genre: 'Essays',      pageCount: 224,  coverUrl: OL_COVER('0691096120') },
+  { id: 'OL35233W',   title: 'The Count of Monte Cristo',  author: 'Alexandre Dumas',     genre: 'Fiction',     pageCount: 1276, coverUrl: OL_COVER('0140449264') },
+  { id: 'OL15403W',   title: 'On the Shortness of Life',   author: 'Seneca',              genre: 'Philosophy',  pageCount: 97,   coverUrl: OL_COVER('0143036327') },
+  { id: 'OL22025W',   title: 'The Art of War',             author: 'Sun Tzu',             genre: 'Strategy',    pageCount: 112,  coverUrl: OL_COVER('1590302257') },
 ];
 
 // ─── Interest → query map ─────────────────────────────────────────────────────
@@ -94,8 +98,10 @@ type GBResponse = {
 function gbCoverUrl(item: GBVolume): string | undefined {
   const raw = item.volumeInfo.imageLinks?.thumbnail ?? item.volumeInfo.imageLinks?.smallThumbnail;
   if (!raw) return undefined;
-  // Force HTTPS and bump zoom for higher-res cover
-  return raw.replace('http://', 'https://').replace('zoom=1', 'zoom=3');
+  return raw
+    .replace('http://', 'https://')
+    .replace('zoom=1', 'zoom=2')
+    .replace('&edge=curl', '');
 }
 
 async function searchGoogleBooks(
@@ -126,12 +132,18 @@ async function searchGoogleBooks(
 
 async function fetchTrendingBooks(): Promise<Book[]> {
   const TRENDING_QUERIES = [
-    'atomic habits james clear',
-    'meditations marcus aurelius',
-    'man search for meaning frankl',
-    'the obstacle is the way holiday',
-    'thinking fast and slow kahneman',
-    'the 48 laws of power greene',
+    'Meditations Marcus Aurelius',
+    'The Old Man and the Sea Hemingway',
+    "Man's Search for Meaning Frankl",
+    'The Great Gatsby Fitzgerald',
+    'Letters from a Stoic Seneca',
+    'The Picture of Dorian Gray Wilde',
+    'Crime and Punishment Dostoevsky',
+    'Thus Spoke Zarathustra Nietzsche',
+    'Walden Thoreau',
+    'The Count of Monte Cristo Dumas',
+    'On the Shortness of Life Seneca',
+    'The Art of War Sun Tzu',
   ];
   const results = await Promise.allSettled(
     TRENDING_QUERIES.map((q) => searchGoogleBooks(q, 0)),
@@ -241,10 +253,7 @@ function BookCard({
       <View style={{ width: CARD_W, height: coverH, borderRadius: 14, overflow: 'hidden', backgroundColor: coverColor(book.id) }}>
         {book.coverUrl ? (
           <Image
-            source={[
-              { uri: book.coverUrl },
-              ...(book.id.startsWith('OL') ? [{ uri: `https://covers.openlibrary.org/b/olid/${book.id}-L.jpg` }] : []),
-            ]}
+            source={{ uri: book.coverUrl }}
             style={{ width: CARD_W, height: coverH }}
             contentFit="cover"
             transition={200}

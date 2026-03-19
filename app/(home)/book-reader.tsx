@@ -4,22 +4,22 @@ import { useBooksStore } from '@/store/booksStore';
 import { useNotesStore } from '@/store/notesStore';
 import { Book } from '@/types/book';
 import * as Haptics from 'expo-haptics';
+import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
 import {
   ArrowLeft,
   BookOpen,
   Check,
+  Clock,
   List,
   Moon,
   PenLine,
   Sun,
   Sunset,
-  Type,
   X,
 } from 'lucide-react-native';
 import { useEffect, useRef, useState } from 'react';
 import {
-  Alert,
   InteractionManager,
   KeyboardAvoidingView,
   Modal,
@@ -37,6 +37,7 @@ import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withSequence,
+  withSpring,
   withTiming,
 } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -45,6 +46,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 type Theme = 'light' | 'sepia' | 'dark';
 type FontSize = 'S' | 'M' | 'L';
+type Brightness = 'dim' | 'normal' | 'bright';
 
 const THEMES = {
   light: {
@@ -122,6 +124,13 @@ function stripGutenbergHeader(raw: string): string {
     if (bodyEndIdx !== -1) body = body.slice(0, bodyEndIdx);
   }
   return body.trim();
+}
+
+function hexToRgba(hex: string, alpha: number): string {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `rgba(${r},${g},${b},${alpha})`;
 }
 
 // Chapter heading detection — covers all major Gutenberg formatting styles
@@ -249,6 +258,10 @@ function buildPages(chapters: ChapterInfo[], wordsPerPage: number): { pages: Pag
   return { pages, chapterFirstPages };
 }
 
+// ─── Animated pressable ───────────────────────────────────────────────────────
+
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
 // ─── Skeleton ─────────────────────────────────────────────────────────────────
 
 function SkeletonBlock({ height, color }: { height: number; color: string }) {
@@ -274,6 +287,35 @@ function SkeletonBlock({ height, color }: { height: number; color: string }) {
   );
 }
 
+// ─── Pill button ─────────────────────────────────────────────────────────────
+
+function PillButton({
+  onPress,
+  children,
+  style,
+}: {
+  onPress?: () => void;
+  children: React.ReactNode;
+  style?: object;
+}) {
+  const scale = useSharedValue(1);
+  const animStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+  return (
+    <AnimatedPressable
+      onPress={() => {
+        if (onPress) onPress();
+        scale.value = withSpring(0.82, { damping: 18, stiffness: 180 }, () => {
+          'worklet';
+          scale.value = withSpring(1, { damping: 18, stiffness: 180 });
+        });
+      }}
+      style={[styles.pill, animStyle, style]}
+    >
+      {children}
+    </AnimatedPressable>
+  );
+}
+
 // ─── Main screen ─────────────────────────────────────────────────────────────
 
 export default function BookReaderScreen() {
@@ -290,14 +332,18 @@ export default function BookReaderScreen() {
   const [error, setError] = useState<string | null>(null);
   const [fontSize, setFontSize] = useState<FontSize>('M');
   const [theme, setTheme] = useState<Theme>('light');
+  const [brightness, setBrightness] = useState<Brightness>('normal');
   const [showControls, setShowControls] = useState(true);
-  const [showFontPicker, setShowFontPicker] = useState(false);
+  const [showFontPanel, setShowFontPanel] = useState(false);
+  const [showBrightnessPanel, setShowBrightnessPanel] = useState(false);
   const [showNoteModal, setShowNoteModal] = useState(false);
   const [showChaptersModal, setShowChaptersModal] = useState(false);
   const [noteText, setNoteText] = useState('');
   const [prevPageIndex, setPrevPageIndex] = useState<number | null>(null);
+  const [currentTime, setCurrentTime] = useState('');
 
   const t = THEMES[theme];
+  const textColor = brightness === 'dim' ? t.muted : t.text;
   const controlsOpacity = useSharedValue(1);
   const contentOpacity = useSharedValue(1);
   const contentTranslateX = useSharedValue(0);
@@ -306,6 +352,18 @@ export default function BookReaderScreen() {
   const availableForReading = GUTENBERG_TEXT_MAP[book.id] !== undefined;
 
   const currentPage = pages[pageIndex];
+
+  // ── Clock ────────────────────────────────────────────────────────────────────
+  useEffect(() => {
+    const update = () => {
+      setCurrentTime(
+        new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: false }),
+      );
+    };
+    update();
+    const id = setInterval(update, 1000);
+    return () => clearInterval(id);
+  }, []);
 
   // ── Fetch & process text ────────────────────────────────────────────────────
   useEffect(() => {
@@ -352,6 +410,7 @@ export default function BookReaderScreen() {
       resetHideTimer();
     } else {
       controlsOpacity.value = withTiming(0, { duration: 300 });
+      setShowBrightnessPanel(false);
     }
     return () => {
       if (controlsHideTimer.current) clearTimeout(controlsHideTimer.current);
@@ -402,7 +461,8 @@ export default function BookReaderScreen() {
   });
 
   const handleCentreTap = () => {
-    setShowFontPicker(false);
+    setShowFontPanel(false);
+    setShowBrightnessPanel(false);
     setShowControls((prev) => !prev);
   };
 
@@ -414,7 +474,7 @@ export default function BookReaderScreen() {
 
   const ThemeIcon = theme === 'dark' ? Moon : theme === 'sepia' ? Sunset : Sun;
 
-  // ── Progress bar ─────────────────────────────────────────────────────────────
+  // ── Progress fraction ─────────────────────────────────────────────────────────
   const progressFraction = pages.length > 1 ? pageIndex / (pages.length - 1) : 0;
 
   // ── Chapter label for nav ─────────────────────────────────────────────────────
@@ -493,16 +553,15 @@ export default function BookReaderScreen() {
   return (
     <Pressable
       style={[styles.flex, { backgroundColor: t.bg }]}
-      onPress={() => { setShowFontPicker(false); }}
+      onPress={() => { setShowBrightnessPanel(false); }}
     >
       <SafeAreaView style={styles.flex} edges={['top', 'bottom']}>
 
-        {/* Nav bar */}
+        {/* Nav bar — simplified: back + chapter label + chapters list */}
         <Animated.View style={[styles.navBar, { backgroundColor: t.nav, borderBottomColor: t.border }, controlsAnimStyle]}>
           <Pressable onPress={() => router.back()} style={styles.navBack}>
             <ArrowLeft size={16} color={t.muted} strokeWidth={1.5} />
           </Pressable>
-          {/* Chapter label centered */}
           <View style={styles.navCenter}>
             {chapterLabel ? (
               <Text style={[styles.navChapterLabel, { color: t.muted }]} numberOfLines={1}>
@@ -510,51 +569,13 @@ export default function BookReaderScreen() {
               </Text>
             ) : null}
           </View>
-          <View style={styles.navActions}>
-            {/* Chapters list */}
-            <Pressable
-              onPress={(e) => { e.stopPropagation(); setShowChaptersModal(true); }}
-              hitSlop={10}
-              style={styles.navIconBtn}
-            >
-              <List size={17} color={t.icon} strokeWidth={1.5} />
-            </Pressable>
-            {/* Font size toggle */}
-            <View>
-              <Pressable
-                onPress={(e) => { e.stopPropagation(); setShowFontPicker((p) => !p); }}
-                hitSlop={10}
-                style={styles.navIconBtn}
-              >
-                <Type size={17} color={t.icon} strokeWidth={1.5} />
-              </Pressable>
-              {showFontPicker && (
-                <View style={[styles.fontPicker, { backgroundColor: t.surface, borderColor: t.border }]}>
-                  {(['S', 'M', 'L'] as FontSize[]).map((size) => (
-                    <Pressable
-                      key={size}
-                      onPress={(e) => { e.stopPropagation(); setFontSize(size); setShowFontPicker(false); }}
-                      style={[styles.fontPickerItem, fontSize === size && { backgroundColor: t.bg }]}
-                    >
-                      <Text
-                        style={{
-                          fontFamily: 'PlayfairDisplay_400Regular',
-                          fontSize: FONT_SIZES[size],
-                          color: fontSize === size ? t.text : t.muted,
-                        }}
-                      >
-                        A
-                      </Text>
-                    </Pressable>
-                  ))}
-                </View>
-              )}
-            </View>
-            {/* Theme cycle */}
-            <Pressable onPress={cycleTheme} hitSlop={10} style={styles.navIconBtn}>
-              <ThemeIcon size={17} color={t.icon} strokeWidth={1.5} />
-            </Pressable>
-          </View>
+          <Pressable
+            onPress={(e) => { e.stopPropagation(); setShowChaptersModal(true); }}
+            hitSlop={10}
+            style={styles.navIconBtn}
+          >
+            <List size={17} color={t.icon} strokeWidth={1.5} />
+          </Pressable>
         </Animated.View>
 
         {/* Reading area */}
@@ -572,7 +593,7 @@ export default function BookReaderScreen() {
               {/* Chapter header — shown only at chapter start */}
               {currentPage?.isChapterStart && currentPage.chapterTitle ? (
                 <View style={styles.chapterHeader}>
-                  <Text style={[styles.chapterTitle, { color: t.text }]}>
+                  <Text style={[styles.chapterTitle, { color: textColor }]}>
                     {currentPage.chapterTitle}
                   </Text>
                   {currentPage.chapterSubtitle ? (
@@ -592,11 +613,11 @@ export default function BookReaderScreen() {
                       {
                         fontSize: FONT_SIZES[fontSize],
                         lineHeight: LINE_HEIGHTS[fontSize],
-                        color: t.text,
+                        color: textColor,
                       },
                     ]}
                   >
-                    <Text style={[styles.dropCap, { color: t.text }]}>
+                    <Text style={[styles.dropCap, { color: textColor }]}>
                       {currentPage.dropCapLetter}
                     </Text>
                     {currentPage.text}
@@ -608,7 +629,7 @@ export default function BookReaderScreen() {
                       {
                         fontSize: FONT_SIZES[fontSize],
                         lineHeight: LINE_HEIGHTS[fontSize],
-                        color: t.text,
+                        color: textColor,
                       },
                     ]}
                   >
@@ -617,56 +638,117 @@ export default function BookReaderScreen() {
                 )
               ) : null}
             </View>
+
+            {/* Bottom gradient fade — blends text into toolbar */}
+            <LinearGradient
+              colors={[hexToRgba(t.bg, 0), t.bg]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 0, y: 1 }}
+              style={styles.bottomFade}
+              pointerEvents="none"
+            />
           </Animated.View>
         </GestureDetector>
 
-        {/* Bottom bar — progress bar + page indicator */}
-        <Animated.View style={[styles.bottomBar, { backgroundColor: t.nav, borderTopColor: t.border }, controlsAnimStyle]}>
-          {/* Progress bar track */}
-          <View style={[styles.progressTrack, { backgroundColor: t.progressTrack }]}>
+        {/* Floating note button — wrapped in controlsAnimStyle */}
+        <Animated.View style={[styles.floatingNoteBtnContainer, controlsAnimStyle]}>
+          <Pressable
+            style={[styles.floatingNoteBtn, { backgroundColor: t.text }]}
+            onPress={() => { setNoteText(''); setShowNoteModal(true); }}
+            accessibilityRole="button"
+            accessibilityLabel="Add a note"
+          >
+            <PenLine size={16} color={t.bg} strokeWidth={1.5} />
+          </Pressable>
+        </Animated.View>
+
+        {/* Brightness popover — appears above toolbar */}
+        {showBrightnessPanel ? (
+          <Animated.View style={[styles.brightnessPanel, controlsAnimStyle]}>
+            {(['dim', 'normal', 'bright'] as Brightness[]).map((b) => (
+              <Pressable
+                key={b}
+                onPress={() => { setBrightness(b); setShowBrightnessPanel(false); }}
+                style={[
+                  styles.brightnessPillItem,
+                  brightness === b && styles.brightnessPillItemActive,
+                ]}
+              >
+                <Text style={[styles.pillText, brightness === b && { color: '#0A0A0A' }]}>
+                  {b.charAt(0).toUpperCase() + b.slice(1)}
+                </Text>
+              </Pressable>
+            ))}
+          </Animated.View>
+        ) : null}
+
+        {/* Floating pill toolbar */}
+        <Animated.View style={[styles.toolbarContainer, controlsAnimStyle]} pointerEvents="box-none">
+          {/* Back to previous position */}
+          {prevPageIndex !== null ? (
+            <Pressable
+              onPress={() => {
+                const prev = prevPageIndex;
+                setPrevPageIndex(null);
+                goToPage(prev);
+              }}
+              hitSlop={8}
+              style={styles.backToRow}
+            >
+              <Text style={[styles.backToLabel, { color: t.muted }]}>
+                ← Back to p.{prevPageIndex + 1}
+              </Text>
+            </Pressable>
+          ) : null}
+
+          {/* Progress line */}
+          <View style={[styles.progressLine, { backgroundColor: t.progressTrack }]}>
             <View
               style={[
-                styles.progressFill,
+                styles.progressLineFill,
                 { backgroundColor: t.progress, width: `${progressFraction * 100}%` },
               ]}
             />
           </View>
-          {/* Labels row */}
-          <View style={styles.progressLabels}>
-            {/* Back to previous position */}
-            {prevPageIndex !== null ? (
-              <Pressable
-                onPress={() => {
-                  const prev = prevPageIndex;
-                  setPrevPageIndex(null);
-                  goToPage(prev);
-                }}
-                hitSlop={8}
-              >
-                <Text style={[styles.backToLabel, { color: t.muted }]}>
-                  Back to p.{prevPageIndex + 1}
-                </Text>
-              </Pressable>
-            ) : (
-              <View style={styles.progressLabelSpacer} />
-            )}
-            {/* Page count centered */}
-            <Text style={[styles.pageIndicator, { color: t.muted }]}>
-              {pageIndex + 1} of {pages.length}
-            </Text>
-            <View style={styles.progressLabelSpacer} />
+
+          {/* Pill row */}
+          <View style={styles.pillRow}>
+            {/* Time — non-interactive display */}
+            <View style={styles.pill}>
+              <Clock size={13} color="#EDEDED" strokeWidth={1.5} />
+              <Text style={styles.pillText}>{currentTime}</Text>
+            </View>
+
+            {/* Read | Listen segmented pill */}
+            <View style={styles.segmentedPill}>
+              <View style={styles.segmentActive}>
+                <Text style={[styles.pillText, { color: '#0A0A0A' }]}>Read</Text>
+              </View>
+              <View style={styles.segmentInactive}>
+                <Text style={[styles.pillText, { color: '#EDEDED' }]}>Listen</Text>
+              </View>
+            </View>
+
+            {/* Brightness */}
+            <PillButton
+              onPress={() => {
+                setShowBrightnessPanel((p) => !p);
+              }}
+            >
+              <Sun size={15} color="#EDEDED" strokeWidth={1.5} />
+            </PillButton>
+
+            {/* Font / Appearance */}
+            <PillButton
+              onPress={() => {
+                setShowBrightnessPanel(false);
+                setShowFontPanel(true);
+              }}
+            >
+              <Text style={[styles.pillText, { fontFamily: 'PlayfairDisplay_700Bold', fontSize: 14 }]}>Aa</Text>
+            </PillButton>
           </View>
         </Animated.View>
-
-        {/* Floating note button */}
-        <Pressable
-          style={[styles.floatingNoteBtn, { backgroundColor: t.text }]}
-          onPress={() => { setNoteText(''); setShowNoteModal(true); }}
-          accessibilityRole="button"
-          accessibilityLabel="Add a note"
-        >
-          <PenLine size={16} color={t.bg} strokeWidth={1.5} />
-        </Pressable>
 
         {/* ── Note modal ──────────────────────────────────────────────────────── */}
         <Modal
@@ -774,6 +856,81 @@ export default function BookReaderScreen() {
           </SafeAreaView>
         </Modal>
 
+        {/* ── Appearance modal (font size + theme) ───────────────────────────── */}
+        <Modal
+          visible={showFontPanel}
+          animationType="slide"
+          presentationStyle="pageSheet"
+          onRequestClose={() => setShowFontPanel(false)}
+        >
+          <SafeAreaView style={{ flex: 1, backgroundColor: t.bg }} edges={['top', 'bottom']}>
+            <View style={[styles.modalHeader, { borderBottomColor: t.border }]}>
+              <Text style={[styles.modalTitle, { color: t.text }]}>Appearance</Text>
+              <Pressable onPress={() => setShowFontPanel(false)} hitSlop={12}>
+                <X size={18} color={t.muted} strokeWidth={1.5} />
+              </Pressable>
+            </View>
+            <View style={styles.appearanceContent}>
+              {/* Font size */}
+              <Text style={[styles.appearanceSectionLabel, { color: t.muted }]}>Size</Text>
+              <View style={styles.fontSizeRow}>
+                {(['S', 'M', 'L'] as FontSize[]).map((size) => (
+                  <Pressable
+                    key={size}
+                    onPress={() => setFontSize(size)}
+                    style={[
+                      styles.fontSizePill,
+                      {
+                        backgroundColor: fontSize === size ? t.text : t.surface,
+                        borderColor: t.border,
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={{
+                        fontFamily: 'PlayfairDisplay_400Regular',
+                        fontSize: FONT_SIZES[size] + 2,
+                        color: fontSize === size ? t.bg : t.muted,
+                      }}
+                    >
+                      A
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+
+              {/* Theme */}
+              <Text style={[styles.appearanceSectionLabel, { color: t.muted }]}>Theme</Text>
+              <View style={styles.themeRow}>
+                {(['light', 'sepia', 'dark'] as Theme[]).map((th) => {
+                  const tc = THEMES[th];
+                  const isActive = theme === th;
+                  const ThIcon = th === 'dark' ? Moon : th === 'sepia' ? Sunset : Sun;
+                  return (
+                    <Pressable
+                      key={th}
+                      onPress={() => setTheme(th)}
+                      style={[
+                        styles.themePill,
+                        {
+                          backgroundColor: tc.bg,
+                          borderWidth: isActive ? 2 : 1,
+                          borderColor: isActive ? tc.text : tc.border,
+                        },
+                      ]}
+                    >
+                      <ThIcon size={16} color={tc.text} strokeWidth={1.5} />
+                      <Text style={[styles.themeLabel, { color: tc.text }]}>
+                        {th.charAt(0).toUpperCase() + th.slice(1)}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+          </SafeAreaView>
+        </Modal>
+
       </SafeAreaView>
     </Pressable>
   );
@@ -808,40 +965,8 @@ const styles = StyleSheet.create({
     fontSize: 13,
     flex: 1,
   },
-  navActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
-  },
   navIconBtn: {
     padding: 4,
-  },
-
-  // ── Font picker ────────────────────────────────────────────────────────────
-  fontPicker: {
-    position: 'absolute',
-    top: 34,
-    right: 0,
-    flexDirection: 'row',
-    borderRadius: 12,
-    borderWidth: 1,
-    overflow: 'hidden',
-    zIndex: 100,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.12,
-        shadowRadius: 8,
-      },
-      android: { elevation: 6 },
-    }),
-  },
-  fontPickerItem: {
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
 
   // ── Page content ───────────────────────────────────────────────────────────
@@ -889,54 +1014,29 @@ const styles = StyleSheet.create({
     lineHeight: 60,
   },
 
-  // ── Bottom bar ─────────────────────────────────────────────────────────────
-  bottomBar: {
-    paddingHorizontal: 20,
-    paddingTop: 10,
-    paddingBottom: 8,
-    borderTopWidth: StyleSheet.hairlineWidth,
-  },
-  progressTrack: {
-    height: 3,
-    borderRadius: 2,
-    overflow: 'hidden',
-    marginBottom: 10,
-  },
-  progressFill: {
-    height: '100%',
-    borderRadius: 2,
-  },
-  progressLabels: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  backToLabel: {
-    fontFamily: 'PlayfairDisplay_400Regular',
-    fontSize: 11,
-    letterSpacing: 0.3,
-  },
-  pageIndicator: {
-    fontFamily: 'PlayfairDisplay_700Bold',
-    fontSize: 12,
-    letterSpacing: 0.5,
-    textAlign: 'center',
-  },
-  progressLabelSpacer: {
-    width: 60,
+  // ── Bottom gradient fade ────────────────────────────────────────────────────
+  bottomFade: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: 120,
+    zIndex: 5,
   },
 
   // ── Floating note button ───────────────────────────────────────────────────
-  floatingNoteBtn: {
+  floatingNoteBtnContainer: {
     position: 'absolute',
-    bottom: 72,
+    bottom: 110,
     right: 20,
+    zIndex: 20,
+  },
+  floatingNoteBtn: {
     width: 42,
     height: 42,
     borderRadius: 21,
     alignItems: 'center',
     justifyContent: 'center',
-    zIndex: 20,
     ...Platform.select({
       ios: {
         shadowColor: '#000',
@@ -946,6 +1046,131 @@ const styles = StyleSheet.create({
       },
       android: { elevation: 6 },
     }),
+  },
+
+  // ── Pill toolbar ───────────────────────────────────────────────────────────
+  toolbarContainer: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+    paddingTop: 8,
+    zIndex: 25,
+  },
+  progressLine: {
+    height: 2,
+    borderRadius: 1,
+    overflow: 'hidden',
+    marginBottom: 10,
+  },
+  progressLineFill: {
+    height: '100%',
+    borderRadius: 1,
+  },
+  backToRow: {
+    alignItems: 'center',
+    paddingBottom: 6,
+  },
+  backToLabel: {
+    fontFamily: 'PlayfairDisplay_400Regular',
+    fontSize: 11,
+    letterSpacing: 0.3,
+  },
+  pillRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  pill: {
+    backgroundColor: '#0A0A0A',
+    borderRadius: 50,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 6,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.25,
+        shadowRadius: 12,
+      },
+      android: { elevation: 8 },
+    }),
+  },
+  pillText: {
+    fontFamily: 'PlayfairDisplay_400Regular',
+    fontSize: 12,
+    color: '#EDEDED',
+    letterSpacing: 0.3,
+  },
+  segmentedPill: {
+    flex: 1,
+    flexDirection: 'row',
+    backgroundColor: '#0A0A0A',
+    borderRadius: 50,
+    padding: 3,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.25,
+        shadowRadius: 12,
+      },
+      android: { elevation: 8 },
+    }),
+  },
+  segmentActive: {
+    flex: 1,
+    backgroundColor: '#EDEDED',
+    borderRadius: 50,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 7,
+  },
+  segmentInactive: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 7,
+    opacity: 0.45,
+  },
+
+  // ── Brightness popover ─────────────────────────────────────────────────────
+  brightnessPanel: {
+    position: 'absolute',
+    bottom: 84,
+    right: 16,
+    backgroundColor: '#0A0A0A',
+    borderRadius: 50,
+    flexDirection: 'row',
+    paddingVertical: 6,
+    paddingHorizontal: 6,
+    gap: 4,
+    zIndex: 30,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.25,
+        shadowRadius: 12,
+      },
+      android: { elevation: 8 },
+    }),
+  },
+  brightnessPillItem: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 50,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  brightnessPillItemActive: {
+    backgroundColor: '#EDEDED',
   },
 
   // ── Centred states ─────────────────────────────────────────────────────────
@@ -1036,5 +1261,47 @@ const styles = StyleSheet.create({
     fontFamily: 'PlayfairDisplay_400Regular_Italic',
     fontSize: 12,
     marginTop: 2,
+  },
+
+  // ── Appearance panel ───────────────────────────────────────────────────────
+  appearanceContent: {
+    padding: 20,
+    gap: 16,
+  },
+  appearanceSectionLabel: {
+    fontFamily: 'PlayfairDisplay_400Regular',
+    fontSize: 11,
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
+    marginBottom: -8,
+  },
+  fontSizeRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  fontSizePill: {
+    flex: 1,
+    borderRadius: 50,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+  },
+  themeRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  themePill: {
+    flex: 1,
+    borderRadius: 16,
+    paddingVertical: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  themeLabel: {
+    fontFamily: 'PlayfairDisplay_400Regular',
+    fontSize: 12,
+    letterSpacing: 0.3,
   },
 });

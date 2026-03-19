@@ -1,8 +1,11 @@
 // app/(home)/(tabs)/index.tsx — Articles tab
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { TAB_BAR_BOTTOM_OFFSET } from '@/components/GlassTabBar';
-import { ARTICLE_CATEGORIES, ARTICLES, Article, ArticleCategory } from '@/constants/articles';
+import { ALL_FEED_CATEGORIES } from '@/constants/articles';
+import { useNewsStore } from '@/store/newsStore';
+import type { FeedArticle, FeedCategory } from '@/types/news';
 import { router } from 'expo-router';
+import * as Linking from 'expo-linking';
 import { ArrowUpRight, BookOpen } from 'lucide-react-native';
 import { type ReactNode, useEffect, useMemo, useState } from 'react';
 import {
@@ -171,7 +174,7 @@ function CategoryChip({ label, active, onPress }: {
 
 // ─── Article card ─────────────────────────────────────────────────────────────
 function ArticleCard({ article, index, onPress }: {
-  article: Article;
+  article: FeedArticle;
   index: number;
   onPress: () => void;
 }) {
@@ -179,13 +182,19 @@ function ArticleCard({ article, index, onPress }: {
     <Animated.View entering={FadeInDown.delay(80 * index).duration(400)}>
       <PressCard onPress={onPress}>
         <View style={styles.card}>
-          <Image source={{ uri: article.image }} style={styles.cardImage} resizeMode="cover" />
+          {article.imageUrl ? (
+            <Image source={{ uri: article.imageUrl }} style={styles.cardImage} resizeMode="cover" />
+          ) : (
+            <View style={[styles.cardImage, styles.cardImagePlaceholder]} />
+          )}
           <View style={styles.cardBody}>
             <Text style={styles.cardMeta}>{article.date} · {article.readTime}</Text>
             <Text style={styles.cardTitle} numberOfLines={2}>{article.title}</Text>
             <Text style={styles.cardExcerpt} numberOfLines={3}>{article.excerpt}</Text>
             <View style={styles.cardCtaRow}>
-              <Text style={styles.cardCtaText}>View more</Text>
+              <Text style={styles.cardCtaText}>
+                {article.source === 'live' ? 'Read article' : 'View more'}
+              </Text>
               <ArrowUpRight size={12} color="#0A0A0A" strokeWidth={1.5} />
             </View>
           </View>
@@ -199,12 +208,18 @@ function ArticleCard({ article, index, onPress }: {
 export default function ArticlesTab() {
   const insets = useSafeAreaInsets();
   const [showWelcome, setShowWelcome] = useState(false);
-  const [activeCategory, setActiveCategory] = useState<ArticleCategory | 'All'>('All');
+  const [activeCategory, setActiveCategory] = useState<FeedCategory | 'All'>('All');
+
+  const { articles, isLoading, error, hydrate, fetchAndStore } = useNewsStore();
 
   useEffect(() => {
     AsyncStorage.getItem(GUIDE_SHOWN_KEY).then((val) => {
       if (!val) setShowWelcome(true);
     });
+  }, []);
+
+  useEffect(() => {
+    hydrate().then(() => fetchAndStore());
   }, []);
 
   const dismissWelcome = async () => {
@@ -218,14 +233,18 @@ export default function ArticlesTab() {
     router.push('/(home)/app-guide');
   };
 
-  const navigate = (article: Article) => {
-    router.push({ pathname: '/(home)/article', params: { id: article.id } });
+  const navigate = (article: FeedArticle) => {
+    if (article.source === 'live' && article.url) {
+      Linking.openURL(article.url);
+    } else {
+      router.push({ pathname: '/(home)/article', params: { id: article.id } });
+    }
   };
 
   const filteredArticles = useMemo(() => {
-    if (activeCategory === 'All') return ARTICLES;
-    return ARTICLES.filter((a) => a.category === activeCategory);
-  }, [activeCategory]);
+    if (activeCategory === 'All') return articles;
+    return articles.filter((a) => a.category === activeCategory);
+  }, [articles, activeCategory]);
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#EDEDED' }} edges={['top']}>
@@ -240,6 +259,9 @@ export default function ArticlesTab() {
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Articles</Text>
           <Text style={styles.headerSubtitle}>Stay updated with our newest articles and ideas.</Text>
+          {error && !isLoading && (
+            <Text style={styles.errorBanner}>{error}</Text>
+          )}
         </View>
 
         {/* ── Category chips ────────────────────── */}
@@ -253,7 +275,7 @@ export default function ArticlesTab() {
             active={activeCategory === 'All'}
             onPress={() => setActiveCategory('All')}
           />
-          {ARTICLE_CATEGORIES.map((cat) => (
+          {ALL_FEED_CATEGORIES.map((cat) => (
             <CategoryChip
               key={cat}
               label={cat}
@@ -306,6 +328,13 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 20,
   },
+  errorBanner: {
+    fontFamily: 'PlayfairDisplay_400Regular_Italic',
+    fontSize: 11,
+    color: '#9A9A9A',
+    textAlign: 'center',
+    marginTop: 8,
+  },
 
   // Category chips
   categoryChips: { paddingHorizontal: 20, gap: 8, paddingBottom: 4 },
@@ -347,6 +376,9 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 200,
     backgroundColor: '#D4D0CA',
+  },
+  cardImagePlaceholder: {
+    backgroundColor: '#E8E4DF',
   },
   cardBody: {
     padding: 16,
