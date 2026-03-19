@@ -47,18 +47,18 @@ const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 // ─── Curated fallback ─────────────────────────────────────────────────────────
 const CURATED_FALLBACK: Book[] = [
-  { id: 'OL45804W',   title: 'Meditations',                  author: 'Marcus Aurelius',     genre: 'Philosophy',  pageCount: 254,  coverUrl: 'https://covers.openlibrary.org/b/isbn/9780140449334-L.jpg' },
-  { id: 'OL66768W',   title: 'The Old Man and the Sea',       author: 'Ernest Hemingway',    genre: 'Literature',  pageCount: 127,  coverUrl: 'https://covers.openlibrary.org/b/isbn/9780684801223-L.jpg' },
-  { id: 'OL18098W',   title: "Man's Search for Meaning",      author: 'Viktor Frankl',       genre: 'Psychology',  pageCount: 165,  coverUrl: 'https://covers.openlibrary.org/b/isbn/9780807014271-L.jpg' },
-  { id: 'OL468431W',  title: 'The Great Gatsby',              author: 'F. Scott Fitzgerald', genre: 'Fiction',     pageCount: 180,  coverUrl: 'https://covers.openlibrary.org/b/isbn/9780743273565-L.jpg' },
-  { id: 'OL15404W',   title: 'Letters from a Stoic',          author: 'Seneca',              genre: 'Philosophy',  pageCount: 256,  coverUrl: 'https://covers.openlibrary.org/b/isbn/9780140442106-L.jpg' },
-  { id: 'OL49236W',   title: 'The Picture of Dorian Gray',    author: 'Oscar Wilde',         genre: 'Fiction',     pageCount: 254,  coverUrl: 'https://covers.openlibrary.org/b/isbn/9780141439570-L.jpg' },
-  { id: 'OL8098828W', title: 'Crime and Punishment',          author: 'Fyodor Dostoevsky',   genre: 'Fiction',     pageCount: 671,  coverUrl: 'https://covers.openlibrary.org/b/isbn/9780140449136-L.jpg' },
-  { id: 'OL57553W',   title: 'Thus Spoke Zarathustra',        author: 'Friedrich Nietzsche', genre: 'Philosophy',  pageCount: 336,  coverUrl: 'https://covers.openlibrary.org/b/isbn/9780140441185-L.jpg' },
-  { id: 'OL71490W',   title: 'Walden',                        author: 'Henry David Thoreau', genre: 'Essays',      pageCount: 224,  coverUrl: 'https://covers.openlibrary.org/b/isbn/9780451531445-L.jpg' },
-  { id: 'OL35233W',   title: 'The Count of Monte Cristo',     author: 'Alexandre Dumas',     genre: 'Fiction',     pageCount: 1276, coverUrl: 'https://covers.openlibrary.org/b/isbn/9780140449266-L.jpg' },
-  { id: 'OL15403W',   title: 'On the Shortness of Life',      author: 'Seneca',              genre: 'Philosophy',  pageCount: 97,   coverUrl: 'https://covers.openlibrary.org/b/isbn/9780143036326-L.jpg' },
-  { id: 'OL22025W',   title: 'The Art of War',                author: 'Sun Tzu',             genre: 'Strategy',    pageCount: 112,  coverUrl: 'https://covers.openlibrary.org/b/isbn/9781590302255-L.jpg' },
+  { id: 'OL45804W',   title: 'Meditations',                  author: 'Marcus Aurelius',     genre: 'Philosophy',  pageCount: 254,  coverUrl: 'https://covers.openlibrary.org/b/olid/OL45804W-L.jpg' },
+  { id: 'OL66768W',   title: 'The Old Man and the Sea',       author: 'Ernest Hemingway',    genre: 'Literature',  pageCount: 127,  coverUrl: 'https://covers.openlibrary.org/b/olid/OL66768W-L.jpg' },
+  { id: 'OL18098W',   title: "Man's Search for Meaning",      author: 'Viktor Frankl',       genre: 'Psychology',  pageCount: 165,  coverUrl: 'https://covers.openlibrary.org/b/olid/OL18098W-L.jpg' },
+  { id: 'OL468431W',  title: 'The Great Gatsby',              author: 'F. Scott Fitzgerald', genre: 'Fiction',     pageCount: 180,  coverUrl: 'https://covers.openlibrary.org/b/olid/OL468431W-L.jpg' },
+  { id: 'OL15404W',   title: 'Letters from a Stoic',          author: 'Seneca',              genre: 'Philosophy',  pageCount: 256,  coverUrl: 'https://covers.openlibrary.org/b/olid/OL15404W-L.jpg' },
+  { id: 'OL49236W',   title: 'The Picture of Dorian Gray',    author: 'Oscar Wilde',         genre: 'Fiction',     pageCount: 254,  coverUrl: 'https://covers.openlibrary.org/b/olid/OL49236W-L.jpg' },
+  { id: 'OL8098828W', title: 'Crime and Punishment',          author: 'Fyodor Dostoevsky',   genre: 'Fiction',     pageCount: 671,  coverUrl: 'https://covers.openlibrary.org/b/olid/OL8098828W-L.jpg' },
+  { id: 'OL57553W',   title: 'Thus Spoke Zarathustra',        author: 'Friedrich Nietzsche', genre: 'Philosophy',  pageCount: 336,  coverUrl: 'https://covers.openlibrary.org/b/olid/OL57553W-L.jpg' },
+  { id: 'OL71490W',   title: 'Walden',                        author: 'Henry David Thoreau', genre: 'Essays',      pageCount: 224,  coverUrl: 'https://covers.openlibrary.org/b/olid/OL71490W-L.jpg' },
+  { id: 'OL35233W',   title: 'The Count of Monte Cristo',     author: 'Alexandre Dumas',     genre: 'Fiction',     pageCount: 1276, coverUrl: 'https://covers.openlibrary.org/b/olid/OL35233W-L.jpg' },
+  { id: 'OL15403W',   title: 'On the Shortness of Life',      author: 'Seneca',              genre: 'Philosophy',  pageCount: 97,   coverUrl: 'https://covers.openlibrary.org/b/olid/OL15403W-L.jpg' },
+  { id: 'OL22025W',   title: 'The Art of War',                author: 'Sun Tzu',             genre: 'Strategy',    pageCount: 112,  coverUrl: 'https://covers.openlibrary.org/b/olid/OL22025W-L.jpg' },
 ];
 
 // ─── Interest → query map ─────────────────────────────────────────────────────
@@ -73,71 +73,86 @@ const INTEREST_QUERIES: Record<string, string> = {
   'Morning Rituals':  'morning routine discipline habits excellence',
 };
 
-// ─── Open Library trending API ────────────────────────────────────────────────
-type OLWork = {
-  key?: string;
-  title: string;
-  author_name?: string[];
-  cover_i?: number;
-  number_of_pages_median?: number;
-  subject?: string[];
+// ─── Google Books API ─────────────────────────────────────────────────────────
+type GBVolume = {
+  id: string;
+  volumeInfo: {
+    title: string;
+    authors?: string[];
+    imageLinks?: { thumbnail?: string; smallThumbnail?: string };
+    pageCount?: number;
+    categories?: string[];
+    description?: string;
+  };
 };
 
-type OLSearchResponse = {
-  numFound: number;
-  start: number;
-  docs: OLWork[];
+type GBResponse = {
+  totalItems: number;
+  items?: GBVolume[];
 };
 
-async function fetchTrendingBooks(): Promise<Book[]> {
-  const res = await fetch(
-    'https://openlibrary.org/trending/yearly.json?limit=24',
-    { signal: AbortSignal.timeout(8000) },
-  );
-  if (!res.ok) throw new Error(`OL ${res.status}`);
-  const data = await res.json();
-  const works: OLWork[] = data.works ?? [];
-  return works
-    .filter((w) => w.cover_i && w.key)
-    .map((w) => ({
-      id: w.key!.replace('/works/', ''),
-      title: w.title,
-      author: w.author_name?.[0] ?? 'Unknown',
-      coverUrl: `https://covers.openlibrary.org/b/id/${w.cover_i}-L.jpg`,
-      pageCount: w.number_of_pages_median,
-      genre: w.subject?.[0],
-    }));
+function gbCoverUrl(item: GBVolume): string | undefined {
+  const raw = item.volumeInfo.imageLinks?.thumbnail ?? item.volumeInfo.imageLinks?.smallThumbnail;
+  if (!raw) return undefined;
+  // Force HTTPS and bump zoom for higher-res cover
+  return raw.replace('http://', 'https://').replace('zoom=1', 'zoom=3');
 }
 
-// ─── Open Library search (same API as trending — no key needed) ───────────────
-async function searchOpenLibrary(
+async function searchGoogleBooks(
   query: string,
   offset: number = 0,
   signal?: AbortSignal,
 ): Promise<{ books: Book[]; total: number }> {
   const res = await fetch(
-    `https://openlibrary.org/search.json?q=${encodeURIComponent(query)}&limit=20&offset=${offset}`,
+    `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(query)}&startIndex=${offset}&maxResults=20&orderBy=relevance`,
     { signal: signal ?? AbortSignal.timeout(8000) },
   );
-  if (!res.ok) throw new Error(`OL ${res.status}`);
-  const data: OLSearchResponse = await res.json();
-  const docs: OLWork[] = data.docs ?? [];
-  const books = docs
-    .filter((d) => d.cover_i && d.title && d.key)
-    .map((d) => ({
-      id: d.key!.replace('/works/', ''),
-      title: d.title,
-      author: d.author_name?.[0] ?? 'Unknown',
-      coverUrl: `https://covers.openlibrary.org/b/id/${d.cover_i}-L.jpg`,
-      pageCount: d.number_of_pages_median,
-      genre: d.subject?.[0],
+  if (!res.ok) throw new Error(`GB ${res.status}`);
+  const data: GBResponse = await res.json();
+  const items = data.items ?? [];
+  const books = items
+    .filter((item) => gbCoverUrl(item))
+    .map((item) => ({
+      id: item.id,
+      title: item.volumeInfo.title,
+      author: item.volumeInfo.authors?.[0] ?? 'Unknown',
+      coverUrl: gbCoverUrl(item),
+      pageCount: item.volumeInfo.pageCount,
+      genre: item.volumeInfo.categories?.[0],
+      description: item.volumeInfo.description,
     }));
-  return { books, total: data.numFound ?? 0 };
+  return { books, total: data.totalItems ?? 0 };
+}
+
+async function fetchTrendingBooks(): Promise<Book[]> {
+  const TRENDING_QUERIES = [
+    'atomic habits james clear',
+    'meditations marcus aurelius',
+    'man search for meaning frankl',
+    'the obstacle is the way holiday',
+    'thinking fast and slow kahneman',
+    'the 48 laws of power greene',
+  ];
+  const results = await Promise.allSettled(
+    TRENDING_QUERIES.map((q) => searchGoogleBooks(q, 0)),
+  );
+  const seen = new Set<string>();
+  const books: Book[] = [];
+  for (const result of results) {
+    if (result.status === 'fulfilled') {
+      const first = result.value.books[0];
+      if (first && !seen.has(first.id)) {
+        seen.add(first.id);
+        books.push(first);
+      }
+    }
+  }
+  return books;
 }
 
 async function fetchForYouBooks(interests: string[]): Promise<Book[]> {
   const queries = interests.slice(0, 4).map((i) => INTEREST_QUERIES[i]).filter(Boolean);
-  const results = await Promise.allSettled(queries.map((q) => searchOpenLibrary(q)));
+  const results = await Promise.allSettled(queries.map((q) => searchGoogleBooks(q)));
   const seen = new Set<string>();
   const books: Book[] = [];
   for (const result of results) {
@@ -225,7 +240,15 @@ function BookCard({
       {/* Cover */}
       <View style={{ width: CARD_W, height: coverH, borderRadius: 14, overflow: 'hidden', backgroundColor: coverColor(book.id) }}>
         {book.coverUrl ? (
-          <Image source={{ uri: book.coverUrl }} style={{ width: CARD_W, height: coverH }} contentFit="cover" transition={200} />
+          <Image
+            source={[
+              { uri: book.coverUrl },
+              ...(book.id.startsWith('OL') ? [{ uri: `https://covers.openlibrary.org/b/olid/${book.id}-L.jpg` }] : []),
+            ]}
+            style={{ width: CARD_W, height: coverH }}
+            contentFit="cover"
+            transition={200}
+          />
         ) : (
           <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
             <Text style={{ fontFamily: 'PlayfairDisplay_700Bold', fontSize: 36, color: 'rgba(255,255,255,0.20)' }}>
@@ -379,7 +402,7 @@ export default function BooksTab() {
       setSearchTotal(0);
       setSearchResults([]);
       try {
-        const { books, total } = await searchOpenLibrary(text, 0, controller.signal);
+        const { books, total } = await searchGoogleBooks(text, 0, controller.signal);
         if (!controller.signal.aborted) {
           setSearchResults(books);
           setSearchTotal(total);
@@ -404,7 +427,7 @@ export default function BooksTab() {
     abortRef.current = controller;
     setLoadingMore(true);
     try {
-      const { books, total } = await searchOpenLibrary(query, nextOffset, controller.signal);
+      const { books, total } = await searchGoogleBooks(query, nextOffset, controller.signal);
       if (!controller.signal.aborted) {
         const existingIds = new Set(searchResults.map((b) => b.id));
         const fresh = books.filter((b) => !existingIds.has(b.id));
