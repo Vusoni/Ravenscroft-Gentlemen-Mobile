@@ -865,68 +865,83 @@ export default function BookReaderScreen() {
           onRequestClose={() => setShowFontPanel(false)}
         >
           <SafeAreaView style={{ flex: 1, backgroundColor: t.bg }} edges={['top', 'bottom']}>
-            <View style={[styles.modalHeader, { borderBottomColor: t.border }]}>
-              <Text style={[styles.modalTitle, { color: t.text }]}>Appearance</Text>
-              <Pressable onPress={() => setShowFontPanel(false)} hitSlop={12}>
-                <X size={18} color={t.muted} strokeWidth={1.5} />
+            {/* Drag handle */}
+            <View style={[styles.appearanceDragHandle, { backgroundColor: t.border }]} />
+
+            {/* Header */}
+            <View style={styles.appearanceHeader}>
+              <Text style={[styles.appearanceTitleLarge, { color: t.text }]}>Appearance</Text>
+              <Pressable
+                onPress={() => setShowFontPanel(false)}
+                hitSlop={16}
+                style={[styles.appearanceCloseBtn, { backgroundColor: t.surface }]}
+              >
+                <X size={13} color={t.muted} strokeWidth={2.5} />
               </Pressable>
             </View>
+
             <View style={styles.appearanceContent}>
-              {/* Font size */}
-              <Text style={[styles.appearanceSectionLabel, { color: t.muted }]}>Size</Text>
-              <View style={styles.fontSizeRow}>
-                {(['S', 'M', 'L'] as FontSize[]).map((size) => (
-                  <Pressable
-                    key={size}
-                    onPress={() => setFontSize(size)}
-                    style={[
-                      styles.fontSizePill,
-                      {
-                        backgroundColor: fontSize === size ? t.text : t.surface,
-                        borderColor: t.border,
-                      },
-                    ]}
-                  >
-                    <Text
-                      style={{
-                        fontFamily: 'PlayfairDisplay_400Regular',
-                        fontSize: FONT_SIZES[size] + 2,
-                        color: fontSize === size ? t.bg : t.muted,
-                      }}
+              {/* Font size — segmented control */}
+              <View>
+                <Text style={[styles.appearanceSectionLabel, { color: t.muted }]}>Size</Text>
+                <View style={[styles.fontSizeSegment, { backgroundColor: t.surface, borderColor: t.border }]}>
+                  {(['S', 'M', 'L'] as FontSize[]).map((size, index) => (
+                    <Pressable
+                      key={size}
+                      onPress={() => setFontSize(size)}
+                      style={[
+                        styles.fontSizeOption,
+                        index < 2 && { borderRightWidth: StyleSheet.hairlineWidth, borderRightColor: t.border },
+                        fontSize === size && { backgroundColor: t.text },
+                      ]}
                     >
-                      A
-                    </Text>
-                  </Pressable>
-                ))}
+                      <Text
+                        style={{
+                          fontFamily: 'PlayfairDisplay_400Regular',
+                          fontSize: FONT_SIZES[size] + 1,
+                          color: fontSize === size ? t.bg : t.muted,
+                          lineHeight: FONT_SIZES[size] + 10,
+                        }}
+                      >
+                        A
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
               </View>
 
               {/* Theme */}
-              <Text style={[styles.appearanceSectionLabel, { color: t.muted }]}>Theme</Text>
-              <View style={styles.themeRow}>
-                {(['light', 'sepia', 'dark'] as Theme[]).map((th) => {
-                  const tc = THEMES[th];
-                  const isActive = theme === th;
-                  const ThIcon = th === 'dark' ? Moon : th === 'sepia' ? Sunset : Sun;
-                  return (
-                    <Pressable
-                      key={th}
-                      onPress={() => setTheme(th)}
-                      style={[
-                        styles.themePill,
-                        {
-                          backgroundColor: tc.bg,
-                          borderWidth: isActive ? 2 : 1,
-                          borderColor: isActive ? tc.text : tc.border,
-                        },
-                      ]}
-                    >
-                      <ThIcon size={16} color={tc.text} strokeWidth={1.5} />
-                      <Text style={[styles.themeLabel, { color: tc.text }]}>
-                        {th.charAt(0).toUpperCase() + th.slice(1)}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
+              <View>
+                <Text style={[styles.appearanceSectionLabel, { color: t.muted }]}>Theme</Text>
+                <View style={styles.themeRow}>
+                  {(['light', 'sepia', 'dark'] as Theme[]).map((th) => {
+                    const tc = THEMES[th];
+                    const isActive = theme === th;
+                    const ThIcon = th === 'dark' ? Moon : th === 'sepia' ? Sunset : Sun;
+                    return (
+                      <Pressable
+                        key={th}
+                        onPress={() => setTheme(th)}
+                        style={[
+                          styles.themePill,
+                          {
+                            backgroundColor: tc.bg,
+                            borderWidth: isActive ? 2 : StyleSheet.hairlineWidth,
+                            borderColor: isActive ? tc.text : tc.border,
+                          },
+                        ]}
+                      >
+                        <ThIcon size={18} color={tc.text} strokeWidth={1.5} />
+                        <Text style={[styles.themeLabel, { color: tc.text }]}>
+                          {th.charAt(0).toUpperCase() + th.slice(1)}
+                        </Text>
+                        <Text style={[styles.themeSample, { color: tc.muted }]} numberOfLines={2}>
+                          {'The unexamined\nlife is not worth\nliving.'}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
               </View>
             </View>
           </SafeAreaView>
@@ -1264,28 +1279,56 @@ const styles = StyleSheet.create({
   },
 
   // ── Appearance panel ───────────────────────────────────────────────────────
+  appearanceDragHandle: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginTop: 10,
+    marginBottom: 6,
+  },
+  appearanceHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 24,
+    paddingTop: 8,
+    paddingBottom: 20,
+  },
+  appearanceTitleLarge: {
+    fontFamily: 'PlayfairDisplay_400Regular',
+    fontSize: 22,
+    letterSpacing: 0.2,
+  },
+  appearanceCloseBtn: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   appearanceContent: {
-    padding: 20,
-    gap: 16,
+    paddingHorizontal: 24,
+    gap: 28,
   },
   appearanceSectionLabel: {
     fontFamily: 'PlayfairDisplay_400Regular',
-    fontSize: 11,
-    letterSpacing: 1.2,
+    fontSize: 10,
+    letterSpacing: 1.4,
     textTransform: 'uppercase',
-    marginBottom: -8,
+    marginBottom: 10,
   },
-  fontSizeRow: {
+  fontSizeSegment: {
     flexDirection: 'row',
-    gap: 10,
+    borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    overflow: 'hidden',
   },
-  fontSizePill: {
+  fontSizeOption: {
     flex: 1,
-    borderRadius: 50,
-    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 14,
+    paddingVertical: 20,
   },
   themeRow: {
     flexDirection: 'row',
@@ -1293,15 +1336,23 @@ const styles = StyleSheet.create({
   },
   themePill: {
     flex: 1,
-    borderRadius: 16,
-    paddingVertical: 20,
+    borderRadius: 18,
+    paddingVertical: 24,
+    paddingHorizontal: 10,
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
+    gap: 10,
   },
   themeLabel: {
     fontFamily: 'PlayfairDisplay_400Regular',
     fontSize: 12,
-    letterSpacing: 0.3,
+    letterSpacing: 0.4,
+  },
+  themeSample: {
+    fontFamily: 'PlayfairDisplay_400Regular_Italic',
+    fontSize: 9,
+    letterSpacing: 0.2,
+    textAlign: 'center',
+    lineHeight: 14,
+    opacity: 0.7,
   },
 });
