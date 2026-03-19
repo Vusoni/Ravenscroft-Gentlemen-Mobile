@@ -21,14 +21,6 @@ export default function Screen1Ravenscroft() {
         accessibilityLabel="Skip animation and continue"
         accessibilityHint="Double tap to skip the writing animation"
       >
-        {/* Label above */}
-        <Text
-          className="text-muted text-[11px] tracking-[0.3em] uppercase mb-4"
-          style={{ fontFamily: 'PlayfairDisplay_400Regular_Italic' }}
-        >
-          [Writing Animation]
-        </Text>
-
         {/* Animated headline */}
         <WritingAnimation
           text="Ravenscroft"
