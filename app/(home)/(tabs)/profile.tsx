@@ -47,6 +47,7 @@ import {
   View,
 } from 'react-native';
 import Animated, {
+  Easing,
   FadeIn,
   FadeInDown,
   FadeInUp,
@@ -56,6 +57,8 @@ import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withDelay,
+  withRepeat,
+  withSequence,
   withSpring,
   withTiming,
 } from 'react-native-reanimated';
@@ -143,9 +146,57 @@ function AnimatedCounter({ target, delay = 0 }: { target: number; delay?: number
   );
 }
 
+// ─── Ambient orb ─────────────────────────────────────────────────────────────
+function AmbientOrb({
+  size, left, top, baseOpacity, durationX, durationY, rangeX, rangeY, phaseX = 0, phaseY = 0,
+}: {
+  size: number; left: number; top: number; baseOpacity: number;
+  durationX: number; durationY: number; rangeX: number; rangeY: number;
+  phaseX?: number; phaseY?: number;
+}) {
+  const tx = useSharedValue(0);
+  const ty = useSharedValue(0);
+  const op = useSharedValue(baseOpacity);
+
+  useEffect(() => {
+    const sinEase = Easing.inOut(Easing.sin);
+    tx.value = withDelay(phaseX, withRepeat(
+      withSequence(
+        withTiming( rangeX, { duration: durationX, easing: sinEase }),
+        withTiming(-rangeX, { duration: durationX, easing: sinEase }),
+      ), -1, true,
+    ));
+    ty.value = withDelay(phaseY, withRepeat(
+      withSequence(
+        withTiming( rangeY, { duration: durationY, easing: sinEase }),
+        withTiming(-rangeY, { duration: durationY, easing: sinEase }),
+      ), -1, true,
+    ));
+    op.value = withDelay(phaseX, withRepeat(
+      withSequence(
+        withTiming(baseOpacity * 2.0, { duration: durationX * 0.85, easing: sinEase }),
+        withTiming(baseOpacity * 0.4, { duration: durationX * 0.85, easing: sinEase }),
+      ), -1, true,
+    ));
+  }, []);
+
+  const style = useAnimatedStyle(() => ({
+    transform: [{ translateX: tx.value }, { translateY: ty.value }],
+    opacity: op.value,
+  }));
+
+  return (
+    <Animated.View style={[{
+      position: 'absolute', left, top,
+      width: size, height: size, borderRadius: size / 2,
+      backgroundColor: '#FFFFFF',
+    }, style]} />
+  );
+}
+
 // ─── Banner ───────────────────────────────────────────────────────────────────
 function BannerHeader({ topInset, scrollY }: { topInset: number; scrollY: SharedValue<number> }) {
-  const bannerHeight = topInset + 164;
+  const bannerHeight = topInset + 172;
 
   const parallaxStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: interpolate(scrollY.value, [-100, 0, 200], [50, 0, -40]) }],
@@ -154,54 +205,57 @@ function BannerHeader({ topInset, scrollY }: { topInset: number; scrollY: Shared
 
   return (
     <Animated.View style={parallaxStyle}>
-      <LinearGradient
-        colors={['#1A1614', '#1C1917', '#252220']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={{ height: bannerHeight, paddingTop: topInset }}
-      >
-        {/* Warm accent gradient overlay */}
-        <LinearGradient
-          colors={['rgba(212,184,150,0.08)', 'transparent', 'rgba(212,184,150,0.04)']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={StyleSheet.absoluteFill}
-        />
+      {/* ── Ink base ──────────────────────────── */}
+      <View style={{ height: bannerHeight, paddingTop: topInset, backgroundColor: '#0A0A0A', overflow: 'hidden' }}>
 
-        {/* Subtle diagonal lines pattern */}
-        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, overflow: 'hidden', opacity: 0.03 }}>
-          {[0, 1, 2, 3, 4, 5, 6].map((i) => (
-            <View
-              key={i}
-              style={{
-                position: 'absolute',
-                top: -40 + i * 36,
-                left: -20,
-                right: -20,
-                height: 1,
-                backgroundColor: '#D4B896',
-                transform: [{ rotate: '-35deg' }],
-              }}
-            />
+        {/* ── Ambient orbs ──────────────────────── */}
+        <AmbientOrb size={220} left={-50}  top={-60} baseOpacity={0.055} durationX={4200} durationY={5600} rangeX={14} rangeY={10} phaseX={0}    phaseY={600}  />
+        <AmbientOrb size={180} left={130}  top={-40} baseOpacity={0.045} durationX={5800} durationY={4400} rangeX={18} rangeY={12} phaseX={900}  phaseY={0}    />
+        <AmbientOrb size={140} left={290}  top={50}  baseOpacity={0.065} durationX={3600} durationY={5000} rangeX={10} rangeY={14} phaseX={400}  phaseY={1100} />
+        <AmbientOrb size={100} left={70}   top={90}  baseOpacity={0.05}  durationX={4800} durationY={3800} rangeX={12} rangeY={8}  phaseX={1400} phaseY={500}  />
+
+        {/* ── Diagonal stripe texture ───────────── */}
+        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, opacity: 0.035 }}>
+          {[0, 1, 2, 3, 4, 5, 6, 7].map((i) => (
+            <View key={i} style={{
+              position: 'absolute',
+              top: -60 + i * 44,
+              left: -40, right: -40,
+              height: 1,
+              backgroundColor: '#FFFFFF',
+              transform: [{ rotate: '-28deg' }],
+            }} />
           ))}
         </View>
 
-        {/* Top row */}
+        {/* ── Top edge shimmer ──────────────────── */}
+        <LinearGradient
+          colors={['rgba(255,255,255,0.06)', 'transparent']}
+          style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2 }}
+        />
+
+        {/* ── Bottom fade to ivory ──────────────── */}
+        <LinearGradient
+          colors={['transparent', 'rgba(237,237,237,0.18)', 'rgba(237,237,237,0.50)']}
+          style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 48 }}
+        />
+
+        {/* ── Top row ───────────────────────────── */}
         <Animated.View
-          entering={FadeIn.delay(100).duration(500)}
+          entering={FadeIn.delay(100).duration(600)}
           style={{
             flexDirection: 'row',
             alignItems: 'center',
             justifyContent: 'space-between',
             paddingHorizontal: 24,
-            paddingTop: 18,
+            paddingTop: 20,
           }}
         >
           <Text style={{
             fontFamily: 'PlayfairDisplay_700Bold',
-            fontSize: 11,
-            letterSpacing: 3,
-            color: 'rgba(212, 184, 150, 0.5)',
+            fontSize: 10,
+            letterSpacing: 3.5,
+            color: 'rgba(255,255,255,0.35)',
             textTransform: 'uppercase',
           }}>
             My Profile
@@ -209,21 +263,18 @@ function BannerHeader({ topInset, scrollY }: { topInset: number; scrollY: Shared
           <Pressable
             hitSlop={12}
             style={({ pressed }) => ({
-              opacity: pressed ? 0.5 : 1,
-              width: 32,
-              height: 32,
-              borderRadius: 16,
+              opacity: pressed ? 0.4 : 1,
+              width: 32, height: 32, borderRadius: 16,
               borderWidth: 1,
-              borderColor: 'rgba(212,184,150,0.18)',
-              backgroundColor: 'rgba(212,184,150,0.06)',
-              alignItems: 'center',
-              justifyContent: 'center',
+              borderColor: 'rgba(255,255,255,0.14)',
+              backgroundColor: 'rgba(255,255,255,0.06)',
+              alignItems: 'center', justifyContent: 'center',
             })}
           >
-            <MoreHorizontal size={15} color="rgba(212,184,150,0.5)" strokeWidth={1.8} />
+            <MoreHorizontal size={15} color="rgba(255,255,255,0.35)" strokeWidth={1.8} />
           </Pressable>
         </Animated.View>
-      </LinearGradient>
+      </View>
     </Animated.View>
   );
 }
@@ -250,9 +301,9 @@ function FloatingAvatar({ initials, photoUri, onPickPhoto }: { initials: string;
       borderRadius: 42,
     }, animStyle]}>
       <Pressable onPress={onPickPhoto}>
-        {/* Gradient shimmer ring */}
+        {/* Ring */}
         <LinearGradient
-          colors={['#D4B896', 'rgba(212,184,150,0.35)', '#D4B896']}
+          colors={['#1C1C1C', 'rgba(28,28,28,0.30)', '#1C1C1C']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={{
@@ -390,18 +441,18 @@ function UserIdentity({ interests, photoUri, onPickPhoto, onEditProfile }: { int
           alignItems: 'center',
           gap: 5,
           borderWidth: 1,
-          borderColor: 'rgba(212,184,150,0.6)',
+          borderColor: 'rgba(0,0,0,0.14)',
           borderRadius: 20,
           paddingHorizontal: 10,
           paddingVertical: 4,
-          backgroundColor: 'rgba(212,184,150,0.08)',
+          backgroundColor: 'rgba(0,0,0,0.04)',
         }}
       >
-        <View style={{ width: 5, height: 5, borderRadius: 3, backgroundColor: '#D4B896' }} />
+        <View style={{ width: 5, height: 5, borderRadius: 3, backgroundColor: '#1C1C1C' }} />
         <Text style={{
           fontSize: 9,
           fontFamily: 'PlayfairDisplay_700Bold',
-          color: '#D4B896',
+          color: '#1C1C1C',
           letterSpacing: 1.8,
         }}>
           GENTLEMAN
@@ -750,8 +801,8 @@ function StreakRow() {
     >
       <GlassCard intensity={46} borderRadius={22} fillColor="rgba(255,255,255,0.58)">
         <View style={{ overflow: 'hidden', borderRadius: 22, flexDirection: 'row', alignItems: 'center' }}>
-          {/* Gold left accent */}
-          <View style={{ width: 3, height: '100%', backgroundColor: '#D4B896', position: 'absolute', left: 0 }} />
+          {/* Left accent */}
+          <View style={{ width: 3, height: '100%', backgroundColor: '#0A0A0A', position: 'absolute', left: 0 }} />
           <View style={{
             flex: 1,
             flexDirection: 'row',
@@ -759,7 +810,7 @@ function StreakRow() {
             paddingHorizontal: 20,
             paddingVertical: 15,
           }}>
-            <Flame size={15} color="#D4B896" strokeWidth={1.5} />
+            <Flame size={15} color="#0A0A0A" strokeWidth={1.5} />
             <Text style={{
               flex: 1,
               fontSize: 14,

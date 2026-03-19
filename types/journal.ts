@@ -2,14 +2,6 @@ export type JournalCategory = 'reflection' | 'gratitude' | 'lessons' | 'goals' |
 
 export type Mood = 'great' | 'good' | 'neutral' | 'difficult' | 'tough';
 
-export const MOOD_EMOJI: Record<Mood, string> = {
-  great: '\u{1F60A}',
-  good: '\u{1F642}',
-  neutral: '\u{1F610}',
-  difficult: '\u{1F614}',
-  tough: '\u{1F623}',
-};
-
 export const MOOD_LABEL: Record<Mood, string> = {
   great: 'Great',
   good: 'Good',

@@ -90,10 +90,7 @@ function TabItem({
       accessibilityState={{ selected: isFocused }}
     >
       {/* Frosted chip behind active icon */}
-      <Animated.View style={[styles.activeFill, pillStyle]}>
-        {/* Top indicator line */}
-        <Animated.View style={[styles.activeIndicator, indicatorStyle]} />
-      </Animated.View>
+      <Animated.View style={[styles.activeFill, pillStyle]} />
 
       {/* Icon */}
       <Icon
@@ -101,6 +98,9 @@ function TabItem({
         color={isFocused ? "#0A0A0A" : "#9A9A9A"}
         strokeWidth={isFocused ? 2.2 : 1.4}
       />
+
+      {/* Dot below icon */}
+      <Animated.View style={[styles.activeIndicator, indicatorStyle]} />
     </AnimatedPressable>
   );
 }
@@ -238,16 +238,14 @@ const styles = StyleSheet.create({
     height: 40,
     borderRadius: 14,
     backgroundColor: "rgba(10,10,10,0.10)",
-    alignItems: "center",
   },
 
-  // 2px top indicator line inside the chip
+  // 4px dot below icon
   activeIndicator: {
-    position: "absolute",
-    top: 0,
-    width: 20,
-    height: 2,
-    borderRadius: 1,
-    backgroundColor: "rgba(10,10,10,0.35)",
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    marginTop: 4,
+    backgroundColor: "rgba(10,10,10,0.50)",
   },
 });
