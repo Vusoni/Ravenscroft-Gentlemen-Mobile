@@ -1,18 +1,20 @@
 // app/(home)/article.tsx — Article detail
 import { ARTICLES } from '@/constants/articles';
+import { Image } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
 import { ArrowLeft } from 'lucide-react-native';
-import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function ArticleScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const article = ARTICLES.find((a) => a.id === id) ?? ARTICLES[0];
+  const insets = useSafeAreaInsets();
 
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-      {/* ── Nav ────────────────────────────────── */}
-      <View style={styles.nav}>
+    <View style={styles.container}>
+      {/* Back button — floats over the image */}
+      <View style={[styles.navOverlay, { top: insets.top + 8 }]}>
         <Pressable
           onPress={() => router.back()}
           style={styles.navBack}
@@ -20,7 +22,7 @@ export default function ArticleScreen() {
           accessibilityRole="button"
           accessibilityLabel="Back"
         >
-          <ArrowLeft size={16} color="#6B6B6B" strokeWidth={1.5} />
+          <ArrowLeft size={16} color="#EDEDED" strokeWidth={1.5} />
           <Text style={styles.navBackLabel}>Articles</Text>
         </Pressable>
         <View style={styles.categoryPill}>
@@ -28,44 +30,53 @@ export default function ArticleScreen() {
         </View>
       </View>
 
-      {/* ── Hero image ─────────────────────────── */}
-      <Image source={{ uri: article.image }} style={styles.articleImage} resizeMode="cover" />
-
       <ScrollView
         style={styles.flex}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={{ paddingBottom: insets.bottom + 40 }}
         showsVerticalScrollIndicator={false}
+        bounces
       >
-        {/* ── Meta ───────────────────────────────── */}
-        <Text style={styles.meta}>
-          ravenscroft · {article.date} · {article.readTime}
-        </Text>
+        {/* ── Hero image — scrolls with content ── */}
+        <Image
+          source={{ uri: article.image }}
+          style={styles.heroImage}
+          contentFit="cover"
+          transition={300}
+        />
 
-        {/* ── Title ──────────────────────────────── */}
-        <Text style={styles.title}>{article.title}</Text>
-
-        {/* ── Divider ────────────────────────────── */}
-        <View style={styles.divider} />
-
-        {/* ── Body ───────────────────────────────── */}
-        {article.body.map((paragraph, i) => (
-          <Text key={i} style={[styles.body, i < article.body.length - 1 && styles.bodySpacing]}>
-            {paragraph}
+        {/* ── Content ── */}
+        <View style={styles.content}>
+          {/* Meta */}
+          <Text style={styles.meta}>
+            ravenscroft · {article.date} · {article.readTime}
           </Text>
-        ))}
 
-        {/* ── Summary ────────────────────────────── */}
-        <View style={styles.summarySection}>
-          <Text style={styles.summaryTitle}>Summary</Text>
-          {article.summary.map((point, i) => (
-            <View key={i} style={styles.summaryRow}>
-              <View style={styles.summaryDot} />
-              <Text style={styles.summaryText}>{point}</Text>
-            </View>
+          {/* Title */}
+          <Text style={styles.title}>{article.title}</Text>
+
+          {/* Divider */}
+          <View style={styles.divider} />
+
+          {/* Body */}
+          {article.body.map((paragraph, i) => (
+            <Text key={i} style={[styles.body, i < article.body.length - 1 && styles.bodySpacing]}>
+              {paragraph}
+            </Text>
           ))}
+
+          {/* Summary */}
+          <View style={styles.summarySection}>
+            <Text style={styles.summaryTitle}>Summary</Text>
+            {article.summary.map((point, i) => (
+              <View key={i} style={styles.summaryRow}>
+                <View style={styles.summaryDot} />
+                <Text style={styles.summaryText}>{point}</Text>
+              </View>
+            ))}
+          </View>
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -73,49 +84,62 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#EDEDED' },
   flex: { flex: 1 },
 
-  nav: {
+  // Floating nav over the image
+  navOverlay: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    zIndex: 10,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(0,0,0,0.07)',
   },
-  navBack: { flexDirection: 'row', alignItems: 'center', gap: 7 },
+  navBack: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 20,
+  },
   navBackLabel: {
     fontFamily: 'PlayfairDisplay_400Regular',
-    fontSize: 14,
-    color: '#6B6B6B',
+    fontSize: 13,
+    color: '#EDEDED',
   },
   categoryPill: {
-    paddingHorizontal: 4,
-    paddingVertical: 4,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 20,
   },
   categoryPillText: {
     fontFamily: 'PlayfairDisplay_400Regular',
     fontSize: 10,
-    color: '#9A9A9A',
+    color: 'rgba(237,237,237,0.85)',
     letterSpacing: 1.8,
     textTransform: 'uppercase',
   },
 
-  articleImage: {
-    marginHorizontal: 20,
-    marginTop: 20,
-    height: 220,
-    borderRadius: 16,
+  // Full-width hero — top of scroll
+  heroImage: {
+    width: '100%',
+    height: 320,
     backgroundColor: '#D4D0CA',
-    overflow: 'hidden',
   },
 
-  scrollContent: { padding: 24, paddingBottom: 56 },
+  content: {
+    padding: 24,
+  },
 
   meta: {
     fontFamily: 'PlayfairDisplay_400Regular',
     fontSize: 11,
     color: '#ABABAB',
     letterSpacing: 0.3,
+    marginTop: 20,
     marginBottom: 12,
   },
   title: {

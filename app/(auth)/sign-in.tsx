@@ -242,8 +242,13 @@ export default function SignIn() {
         await sa({ session: createdSessionId });
         await navigateAfterAuth();
       }
-    } catch {
-      setError('Google sign in failed.');
+    } catch (err: unknown) {
+      const clerkErr = err as { errors?: { longMessage?: string; message?: string }[] };
+      const msg =
+        clerkErr.errors?.[0]?.longMessage ??
+        clerkErr.errors?.[0]?.message ??
+        (err instanceof Error ? err.message : 'Google sign in failed.');
+      setError(msg);
     } finally {
       setIsLoading(false);
     }

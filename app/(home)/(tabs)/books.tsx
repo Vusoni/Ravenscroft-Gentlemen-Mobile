@@ -14,11 +14,11 @@ import {
   X,
 } from 'lucide-react-native';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { Image } from 'expo-image';
 import {
   ActivityIndicator,
   Dimensions,
   FlatList,
-  Image,
   Platform,
   Pressable,
   StyleSheet,
@@ -225,7 +225,7 @@ function BookCard({
       {/* Cover */}
       <View style={{ width: CARD_W, height: coverH, borderRadius: 14, overflow: 'hidden', backgroundColor: coverColor(book.id) }}>
         {book.coverUrl ? (
-          <Image source={{ uri: book.coverUrl }} style={{ width: CARD_W, height: coverH }} resizeMode="cover" />
+          <Image source={{ uri: book.coverUrl }} style={{ width: CARD_W, height: coverH }} contentFit="cover" transition={200} />
         ) : (
           <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
             <Text style={{ fontFamily: 'PlayfairDisplay_700Bold', fontSize: 36, color: 'rgba(255,255,255,0.20)' }}>

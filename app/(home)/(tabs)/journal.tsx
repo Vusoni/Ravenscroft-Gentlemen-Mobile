@@ -7,10 +7,19 @@ import {
   CATEGORY_LABELS,
   JournalCategory,
   JournalEntry,
-  MOOD_EMOJI,
+  Mood,
 } from '@/types/journal';
 import { router } from 'expo-router';
-import { NotebookPen, Plus, Search } from 'lucide-react-native';
+import { CloudRain, Meh, NotebookPen, Plus, Search, Smile, Sun, Zap } from 'lucide-react-native';
+
+type LucideIcon = typeof Sun;
+const MOOD_ICON: Record<Mood, LucideIcon> = {
+  great:     Sun,
+  good:      Smile,
+  neutral:   Meh,
+  difficult: CloudRain,
+  tough:     Zap,
+};
 import { useEffect, useMemo, useState } from 'react';
 import {
   Pressable,
@@ -153,9 +162,10 @@ function EntryCard({ entry, index }: { entry: JournalEntry; index: number }) {
               <Text style={styles.entryTitle} numberOfLines={1}>
                 {entry.title}
               </Text>
-              {entry.mood && (
-                <Text style={styles.entryMood}>{MOOD_EMOJI[entry.mood]}</Text>
-              )}
+              {entry.mood && (() => {
+                const Icon = MOOD_ICON[entry.mood];
+                return <Icon size={15} color="#6B6B6B" strokeWidth={1.5} />;
+              })()}
             </View>
 
             <Text style={styles.entryBody} numberOfLines={2}>
@@ -531,7 +541,6 @@ const styles = StyleSheet.create({
     flex: 1,
     marginRight: 8,
   },
-  entryMood: { fontSize: 16 },
   entryBody: {
     fontFamily: 'PlayfairDisplay_400Regular',
     fontSize: 13,
