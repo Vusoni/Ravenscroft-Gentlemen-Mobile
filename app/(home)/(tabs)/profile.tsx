@@ -36,6 +36,7 @@ import {
 import { useCallback, useEffect, useState } from 'react';
 import {
   Alert,
+  Dimensions,
   Image,
   Modal,
   Platform,
@@ -58,10 +59,10 @@ import Animated, {
   useSharedValue,
   withDelay,
   withRepeat,
-  withSequence,
   withSpring,
   withTiming,
 } from 'react-native-reanimated';
+import Svg, { Path } from 'react-native-svg';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const AnimatedScrollView = Animated.createAnimatedComponent(ScrollView);
@@ -146,98 +147,80 @@ function AnimatedCounter({ target, delay = 0 }: { target: number; delay?: number
   );
 }
 
-// ─── Ambient orb ─────────────────────────────────────────────────────────────
-function AmbientOrb({
-  size, left, top, baseOpacity, durationX, durationY, rangeX, rangeY, phaseX = 0, phaseY = 0,
+// ─── Wave helpers ─────────────────────────────────────────────────────────────
+const SCREEN_W = Dimensions.get('window').width;
+
+/** Quadratic-bezier sine approximation. Returns an SVG path string. */
+function wavePath(totalW: number, amp: number, λ: number, cy: number): string {
+  const n = Math.ceil(totalW / λ) + 1;
+  let d = `M 0 ${cy}`;
+  for (let i = 0; i < n; i++) {
+    const x = i * λ;
+    d += ` Q ${x + λ * 0.25} ${cy - amp} ${x + λ * 0.5} ${cy}`;
+    d += ` Q ${x + λ * 0.75} ${cy + amp} ${x + λ} ${cy}`;
+  }
+  return d;
+}
+
+// ─── Single animated wave ─────────────────────────────────────────────────────
+function BannerWave({
+  h, λ, amp, cy, duration, stroke, strokeWidth, startDelay = 0,
 }: {
-  size: number; left: number; top: number; baseOpacity: number;
-  durationX: number; durationY: number; rangeX: number; rangeY: number;
-  phaseX?: number; phaseY?: number;
+  h: number; λ: number; amp: number; cy: number;
+  duration: number; stroke: string; strokeWidth: number; startDelay?: number;
 }) {
-  const tx = useSharedValue(0);
-  const ty = useSharedValue(0);
-  const op = useSharedValue(baseOpacity);
+  const svgW = SCREEN_W + λ * 2;
+  const tx   = useSharedValue(0);
 
   useEffect(() => {
-    const sinEase = Easing.inOut(Easing.sin);
-    tx.value = withDelay(phaseX, withRepeat(
-      withSequence(
-        withTiming( rangeX, { duration: durationX, easing: sinEase }),
-        withTiming(-rangeX, { duration: durationX, easing: sinEase }),
-      ), -1, true,
-    ));
-    ty.value = withDelay(phaseY, withRepeat(
-      withSequence(
-        withTiming( rangeY, { duration: durationY, easing: sinEase }),
-        withTiming(-rangeY, { duration: durationY, easing: sinEase }),
-      ), -1, true,
-    ));
-    op.value = withDelay(phaseX, withRepeat(
-      withSequence(
-        withTiming(baseOpacity * 2.0, { duration: durationX * 0.85, easing: sinEase }),
-        withTiming(baseOpacity * 0.4, { duration: durationX * 0.85, easing: sinEase }),
-      ), -1, true,
+    tx.value = withDelay(startDelay, withRepeat(
+      withTiming(-λ, { duration, easing: Easing.linear }),
+      -1, false,
     ));
   }, []);
 
   const style = useAnimatedStyle(() => ({
-    transform: [{ translateX: tx.value }, { translateY: ty.value }],
-    opacity: op.value,
+    transform: [{ translateX: tx.value }],
   }));
 
   return (
-    <Animated.View style={[{
-      position: 'absolute', left, top,
-      width: size, height: size, borderRadius: size / 2,
-      backgroundColor: '#FFFFFF',
-    }, style]} />
+    <Animated.View style={[StyleSheet.absoluteFill, { width: svgW }, style]}>
+      <Svg width={svgW} height={h}>
+        <Path d={wavePath(svgW, amp, λ, cy)} fill="none" stroke={stroke} strokeWidth={strokeWidth} />
+      </Svg>
+    </Animated.View>
   );
 }
 
 // ─── Banner ───────────────────────────────────────────────────────────────────
 function BannerHeader({ topInset, scrollY }: { topInset: number; scrollY: SharedValue<number> }) {
-  const bannerHeight = topInset + 172;
+  const bannerHeight = topInset + 164;
 
   const parallaxStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: interpolate(scrollY.value, [-100, 0, 200], [50, 0, -40]) }],
     opacity: interpolate(scrollY.value, [0, 160], [1, 0.6]),
   }));
 
+  const mid  = bannerHeight * 0.56;
+  const high = bannerHeight * 0.38;
+  const low  = bannerHeight * 0.72;
+
   return (
     <Animated.View style={parallaxStyle}>
-      {/* ── Ink base ──────────────────────────── */}
-      <View style={{ height: bannerHeight, paddingTop: topInset, backgroundColor: '#0A0A0A', overflow: 'hidden' }}>
+      <View style={{ height: bannerHeight, backgroundColor: '#FFFFFF', overflow: 'hidden' }}>
 
-        {/* ── Ambient orbs ──────────────────────── */}
-        <AmbientOrb size={220} left={-50}  top={-60} baseOpacity={0.055} durationX={4200} durationY={5600} rangeX={14} rangeY={10} phaseX={0}    phaseY={600}  />
-        <AmbientOrb size={180} left={130}  top={-40} baseOpacity={0.045} durationX={5800} durationY={4400} rangeX={18} rangeY={12} phaseX={900}  phaseY={0}    />
-        <AmbientOrb size={140} left={290}  top={50}  baseOpacity={0.065} durationX={3600} durationY={5000} rangeX={10} rangeY={14} phaseX={400}  phaseY={1100} />
-        <AmbientOrb size={100} left={70}   top={90}  baseOpacity={0.05}  durationX={4800} durationY={3800} rangeX={12} rangeY={8}  phaseX={1400} phaseY={500}  />
+        {/* ── Waves ─────────────────────────────── */}
+        {/* primary — slow, medium amp */}
+        <BannerWave h={bannerHeight} λ={240} amp={20} cy={mid}  duration={8000} stroke="rgba(10,10,10,0.12)" strokeWidth={0.8} />
+        {/* secondary — faster, tighter */}
+        <BannerWave h={bannerHeight} λ={160} amp={12} cy={high} duration={5500} stroke="rgba(10,10,10,0.06)" strokeWidth={0.5} startDelay={400} />
+        {/* tertiary — slowest, widest swing */}
+        <BannerWave h={bannerHeight} λ={320} amp={28} cy={low}  duration={11000} stroke="rgba(10,10,10,0.04)" strokeWidth={1.0} startDelay={1200} />
 
-        {/* ── Diagonal stripe texture ───────────── */}
-        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, opacity: 0.035 }}>
-          {[0, 1, 2, 3, 4, 5, 6, 7].map((i) => (
-            <View key={i} style={{
-              position: 'absolute',
-              top: -60 + i * 44,
-              left: -40, right: -40,
-              height: 1,
-              backgroundColor: '#FFFFFF',
-              transform: [{ rotate: '-28deg' }],
-            }} />
-          ))}
-        </View>
-
-        {/* ── Top edge shimmer ──────────────────── */}
+        {/* ── Bottom fade ───────────────────────── */}
         <LinearGradient
-          colors={['rgba(255,255,255,0.06)', 'transparent']}
-          style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2 }}
-        />
-
-        {/* ── Bottom fade to ivory ──────────────── */}
-        <LinearGradient
-          colors={['transparent', 'rgba(237,237,237,0.18)', 'rgba(237,237,237,0.50)']}
-          style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 48 }}
+          colors={['transparent', 'rgba(237,237,237,0.4)', '#EDEDED']}
+          style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 52 }}
         />
 
         {/* ── Top row ───────────────────────────── */}
@@ -248,14 +231,14 @@ function BannerHeader({ topInset, scrollY }: { topInset: number; scrollY: Shared
             alignItems: 'center',
             justifyContent: 'space-between',
             paddingHorizontal: 24,
-            paddingTop: 20,
+            paddingTop: topInset + 18,
           }}
         >
           <Text style={{
             fontFamily: 'PlayfairDisplay_700Bold',
             fontSize: 10,
             letterSpacing: 3.5,
-            color: 'rgba(255,255,255,0.35)',
+            color: 'rgba(10,10,10,0.30)',
             textTransform: 'uppercase',
           }}>
             My Profile
@@ -266,12 +249,12 @@ function BannerHeader({ topInset, scrollY }: { topInset: number; scrollY: Shared
               opacity: pressed ? 0.4 : 1,
               width: 32, height: 32, borderRadius: 16,
               borderWidth: 1,
-              borderColor: 'rgba(255,255,255,0.14)',
-              backgroundColor: 'rgba(255,255,255,0.06)',
+              borderColor: 'rgba(10,10,10,0.10)',
+              backgroundColor: 'rgba(10,10,10,0.04)',
               alignItems: 'center', justifyContent: 'center',
             })}
           >
-            <MoreHorizontal size={15} color="rgba(255,255,255,0.35)" strokeWidth={1.8} />
+            <MoreHorizontal size={15} color="rgba(10,10,10,0.30)" strokeWidth={1.8} />
           </Pressable>
         </Animated.View>
       </View>
