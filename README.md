@@ -13,7 +13,6 @@
     <img src="https://img.shields.io/badge/Expo-55-000020?style=flat-square&logo=expo" />
     <img src="https://img.shields.io/badge/React_Native-0.83-61DAFB?style=flat-square&logo=react" />
     <img src="https://img.shields.io/badge/TypeScript-strict-3178C6?style=flat-square&logo=typescript" />
-    <img src="https://img.shields.io/badge/Claude_AI-Sonnet_4.6-D4A853?style=flat-square" />
     <img src="https://img.shields.io/badge/Platform-iOS-000000?style=flat-square&logo=apple" />
   </p>
 </div>
