@@ -6,7 +6,7 @@
 
   <p>
     A premium self-mastery iOS app for modern gentlemen.<br/>
-    Curated literature · AI guidance · Stoic philosophy · Editorial content · Personal journaling.
+    Curated literature · AI guidance · Stoic philosophy · Editorial content · Personal journaling Notebook.
   </p>
 
   <p>
