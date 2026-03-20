@@ -1,6 +1,5 @@
 <div align="center">
-  <img src="https://raw.githubusercontent.com/Vusoni/Ravenscroft-Gentlemen-Mobile/ec26efb64a607556e595efe81c25aec52c5ae37c/Design/Ravenscroft.png" alt="Ravenscroft" width="120" />
-
+  <!-- <img src="https://raw.githubusercontent.com/Vusoni/Ravenscroft-Gentlemen-Mobile/ec26efb64a607556e595efe81c25aec52c5ae37c/Design/Ravenscroft.png" alt="Ravenscroft" width="120" /> -->
   <h1>Ravenscroft</h1>
   <p><em>"You already know the man you should be."</em></p>
 
